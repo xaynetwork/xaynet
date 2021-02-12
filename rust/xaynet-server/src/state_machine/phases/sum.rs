@@ -164,7 +164,7 @@ mod tests {
             .broadcast_phase(PhaseName::Idle)
             .broadcast_sum_dict(DictionaryUpdate::Invalidate)
             .broadcast_seed_dict(DictionaryUpdate::Invalidate)
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build()
     }
 
@@ -245,7 +245,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum,
@@ -293,7 +293,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum,
@@ -316,7 +316,7 @@ mod tests {
         // What should happen:
         // 1. broadcast Sum phase
         // 2. accept 7 sum messages
-        // 3. reject 5 update and 2 sum2 messages
+        // 3. reject 3 update and 5 sum2 messages
         // 4. fetch sum dict
         // 5. broadcast sum dict
         // 6. move into update phase
@@ -353,7 +353,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum,
@@ -409,7 +409,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum,
@@ -457,7 +457,7 @@ mod tests {
         drop(request_tx);
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum,
@@ -515,7 +515,7 @@ mod tests {
         send_sum_messages(1, request_tx.clone());
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum,
@@ -572,7 +572,7 @@ mod tests {
         send_sum_messages(1, request_tx.clone());
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum,
@@ -630,7 +630,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum = state_machine.shared_state_as_ref().clone();
+        let state_after_sum = state_machine.as_ref().clone();
         let events_after_sum = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum,

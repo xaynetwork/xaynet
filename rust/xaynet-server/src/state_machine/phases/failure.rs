@@ -145,7 +145,7 @@ mod tests {
             .broadcast_phase(PhaseName::Sum2)
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(SeedDict::new())))
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build();
 
         (state, event_publisher, event_subscriber)
@@ -189,7 +189,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_error = state_machine.shared_state_as_ref().clone();
+        let state_after_error = state_machine.as_ref().clone();
 
         // round id is updated in idle phase
         assert_ne!(state_after_error.round_id, state_before_error.round_id);
@@ -258,7 +258,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_error = state_machine.shared_state_as_ref().clone();
+        let state_after_error = state_machine.as_ref().clone();
 
         assert_eq!(state_after_error, state_before_error);
 

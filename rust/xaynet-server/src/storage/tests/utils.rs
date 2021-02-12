@@ -45,19 +45,19 @@ pub fn create_local_seed_entries(
     entries
 }
 
-pub fn create_mask_zeroed(byte_size: usize) -> MaskObject {
+pub fn create_mask_zeroed(model_length: usize) -> MaskObject {
     MaskObject::new(
         MaskConfig::from(mask_settings()).into(),
-        vec![BigUint::zero(); byte_size],
+        vec![BigUint::zero(); model_length],
         BigUint::zero(),
     )
     .unwrap()
 }
 
-pub fn create_mask(byte_size: usize, number: u32) -> MaskObject {
+pub fn create_mask(model_length: usize, number: u32) -> MaskObject {
     MaskObject::new(
         MaskConfig::from(mask_settings()).into(),
-        vec![BigUint::from(number); byte_size],
+        vec![BigUint::from(number); model_length],
         BigUint::zero(),
     )
     .unwrap()
@@ -115,6 +115,6 @@ pub async fn add_local_seed_entries(
 
 use xaynet_core::mask::{FromPrimitives, Model};
 
-pub fn create_global_model(nb_elements: usize) -> Model {
-    Model::from_primitives(vec![0; nb_elements].into_iter()).unwrap()
+pub fn create_global_model(model_length: usize) -> Model {
+    Model::from_primitives(vec![0; model_length].into_iter()).unwrap()
 }

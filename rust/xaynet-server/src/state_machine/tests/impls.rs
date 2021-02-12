@@ -92,8 +92,10 @@ impl<T> StateMachine<T> {
             _ => panic!("not in shutdown state"),
         }
     }
+}
 
-    pub fn shared_state_as_ref(&self) -> &CoordinatorState {
+impl<T> AsRef<CoordinatorState> for StateMachine<T> {
+    fn as_ref(&self) -> &CoordinatorState {
         match self {
             StateMachine::Idle(state) => &state.shared.state,
             StateMachine::Sum(state) => &state.shared.state,

@@ -6,7 +6,7 @@ use crate::state_machine::{
     phases::PhaseName,
 };
 
-use super::{utils::EventSnapshot, CoordinatorStateBuilder};
+use super::{utils::EventSnapshot, CoordinatorStateBuilder, WARNING};
 
 pub struct EventBusBuilder {
     event_publisher: EventPublisher,
@@ -56,9 +56,7 @@ impl EventBusBuilder {
 
 #[test]
 fn test_initial_events() {
-    let waring = "All state machine tests were written assuming these initial values.
-    First, carefully check the correctness of the state machine test before finally
-    changing these values";
+    const PANIC_MESSAGE: &str = "the initial events have been changed.";
 
     let state = CoordinatorStateBuilder::new().build();
     let (_, subscriber) = EventBusBuilder::new(&state).build();
@@ -67,25 +65,29 @@ fn test_initial_events() {
     assert_eq!(
         events.phase.event,
         PhaseName::Idle,
-        "the initial events have been changed. {}",
-        waring
+        "{} {}",
+        PANIC_MESSAGE,
+        WARNING
     );
     assert_eq!(
         events.model.event,
         ModelUpdate::Invalidate,
-        "the initial events have been changed. {}",
-        waring
+        "{} {}",
+        PANIC_MESSAGE,
+        WARNING
     );
     assert_eq!(
         events.sum_dict.event,
         DictionaryUpdate::Invalidate,
-        "the initial events have been changed. {}",
-        waring
+        "{} {}",
+        PANIC_MESSAGE,
+        WARNING
     );
     assert_eq!(
         events.seed_dict.event,
         DictionaryUpdate::Invalidate,
-        "the initial events have been changed. {}",
-        waring
+        "{} {}",
+        PANIC_MESSAGE,
+        WARNING
     );
 }

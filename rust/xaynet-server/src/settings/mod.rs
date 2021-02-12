@@ -82,7 +82,8 @@ impl Settings {
 }
 
 /// The PET protocol count settings.
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PetSettingsCount {
     /// The minimal number of participants selected in a phase.
     pub min: u64,
@@ -91,7 +92,8 @@ pub struct PetSettingsCount {
 }
 
 /// The PET protocol time settings.
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PetSettingsTime {
     /// The minimal amount of time reserved for a phase.
     pub min: u64,
@@ -100,7 +102,8 @@ pub struct PetSettingsTime {
 }
 
 /// The PET protocol `sum` phase settings.
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PetSettingsSum {
     /// The probability of participants selected for preparing and computing the aggregated mask.
     /// The value must be between `0` and `1` (i.e. `0 < sum.prob < 1`).
@@ -168,7 +171,8 @@ pub struct PetSettingsSum {
 }
 
 /// The PET protocol `update` phase settings.
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PetSettingsUpdate {
     /// The probability of participants selected for submitting an updated local model for
     /// aggregation. The value must be between `0` and `1` (i.e. `0 < update.prob <= 1`). Here, `1`
@@ -241,7 +245,8 @@ pub struct PetSettingsUpdate {
 }
 
 /// The PET protocol `sum2` phase settings.
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PetSettingsSum2 {
     /// The minimal and maximal number of participants selected for submitting the aggregated masks.
     ///
@@ -296,7 +301,8 @@ pub struct PetSettingsSum2 {
 }
 
 /// The PET protocol settings.
-#[derive(Debug, Validate, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 #[validate(schema(function = "validate_pet"))]
 pub struct PetSettings {
     /// The PET settings for the `sum` phase.
@@ -478,7 +484,8 @@ fn validate_api(s: &ApiSettings) -> Result<(), ValidationError> {
     s.validate_api()
 }
 
-#[derive(Debug, Validate, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Validate, Deserialize, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 /// Masking settings.
 pub struct MaskSettings {
     /// The order of the finite group.
@@ -564,7 +571,8 @@ impl From<MaskSettings> for MaskConfig {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 /// Model settings.
 pub struct ModelSettings {
     /// The expected length of the model. The model length corresponds to the number of elements.

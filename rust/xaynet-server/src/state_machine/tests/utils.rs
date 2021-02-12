@@ -35,6 +35,8 @@ use crate::{
     storage::tests::utils::create_mask,
 };
 
+use super::WARNING;
+
 pub fn enable_logging() {
     let _fmt_subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
@@ -236,10 +238,6 @@ impl Latch {
 
 #[test]
 fn test_initial_settings() {
-    let waring = "All state machine tests were written assuming these settings.
-    First, carefully check the correctness of the state machine test before finally
-    changing these values";
-
     let pet = PetSettings {
         sum: PetSettingsSum {
             prob: 0.4,
@@ -261,7 +259,7 @@ fn test_initial_settings() {
         pet,
         pet_settings(),
         "the initial PetSettings have been changed. {}",
-        waring
+        WARNING
     );
 
     let mask = MaskSettings {
@@ -275,7 +273,7 @@ fn test_initial_settings() {
         mask,
         mask_settings(),
         "the initial MaskSettings have been changed. {}",
-        waring
+        WARNING
     );
 
     let model = ModelSettings { length: 1 };
@@ -284,6 +282,6 @@ fn test_initial_settings() {
         model,
         model_settings(),
         "the initial ModelSettings have been changed. {}",
-        waring
+        WARNING
     );
 }

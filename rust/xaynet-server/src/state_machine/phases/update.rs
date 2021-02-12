@@ -225,7 +225,7 @@ mod tests {
             .broadcast_phase(PhaseName::Sum)
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
             .broadcast_seed_dict(DictionaryUpdate::Invalidate)
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build()
     }
 
@@ -307,7 +307,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_update = state_machine.shared_state_as_ref().clone();
+        let state_after_update = state_machine.as_ref().clone();
         let events_after_update = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_update,
@@ -362,7 +362,7 @@ mod tests {
         send_update_messages(1, request_tx.clone());
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_update = state_machine.shared_state_as_ref().clone();
+        let state_after_update = state_machine.as_ref().clone();
         let events_after_update = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_update,
@@ -420,7 +420,7 @@ mod tests {
         send_update_messages(1, request_tx.clone());
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_update = state_machine.shared_state_as_ref().clone();
+        let state_after_update = state_machine.as_ref().clone();
         let events_after_update = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_update,
@@ -481,7 +481,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_update = state_machine.shared_state_as_ref().clone();
+        let state_after_update = state_machine.as_ref().clone();
         let events_after_update = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_update,
@@ -537,7 +537,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_update = state_machine.shared_state_as_ref().clone();
+        let state_after_update = state_machine.as_ref().clone();
         let events_after_update = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_update,

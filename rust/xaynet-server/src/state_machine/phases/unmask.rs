@@ -226,7 +226,6 @@ mod tests {
     use std::sync::Arc;
 
     use anyhow::anyhow;
-    use xaynet_core::{SeedDict, SumDict};
 
     use crate::{
         state_machine::{
@@ -249,12 +248,12 @@ mod tests {
         },
     };
 
-    fn events_from_sum_phase(state: &CoordinatorState) -> (EventPublisher, EventSubscriber) {
+    fn events_from_sum2_phase(state: &CoordinatorState) -> (EventPublisher, EventSubscriber) {
         EventBusBuilder::new(state)
             .broadcast_phase(PhaseName::Sum2)
-            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
-            .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(SeedDict::new())))
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate)
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate)
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build()
     }
 
@@ -351,7 +350,7 @@ mod tests {
 
         let store = Store::new(cs, ms);
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -362,7 +361,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum2,
@@ -397,7 +396,7 @@ mod tests {
         let store = Store::new(cs, MockModelStore::new());
 
         let state = CoordinatorStateBuilder::new().with_round_id(1).build();
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -408,7 +407,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -446,7 +445,7 @@ mod tests {
         let store = Store::new(cs, MockModelStore::new());
 
         let state = CoordinatorStateBuilder::new().with_round_id(1).build();
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -457,7 +456,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -503,7 +502,7 @@ mod tests {
 
         let store = Store::new(cs, MockModelStore::new());
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -514,7 +513,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -556,7 +555,7 @@ mod tests {
 
         let store = Store::new(cs, MockModelStore::new());
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -570,7 +569,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -643,7 +642,7 @@ mod tests {
 
         let store = Store::new_with_trust_anchor(cs, ms, ta);
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -654,7 +653,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -705,7 +704,7 @@ mod tests {
 
         let store = Store::new(cs, ms);
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -716,7 +715,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,
@@ -767,7 +766,7 @@ mod tests {
 
         let store = Store::new(cs, ms);
 
-        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let (event_publisher, event_subscriber) = events_from_sum2_phase(&state);
         let events_before_sum2 = EventSnapshot::from(&event_subscriber);
         let state_before_sum2 = state.clone();
 
@@ -778,7 +777,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum2,

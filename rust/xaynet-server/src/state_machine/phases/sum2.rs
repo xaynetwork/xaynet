@@ -135,7 +135,7 @@ mod tests {
             .broadcast_phase(PhaseName::Update)
             .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
             .broadcast_seed_dict(DictionaryUpdate::New(Arc::new(SeedDict::new())))
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build()
     }
 
@@ -221,7 +221,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_success(
             &state_before_sum2,
@@ -279,7 +279,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_sum2 = state_machine.shared_state_as_ref().clone();
+        let state_after_sum2 = state_machine.as_ref().clone();
         let events_after_sum2 = EventSnapshot::from(&event_subscriber);
         assert_after_phase_failure(
             &state_before_sum2,

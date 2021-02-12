@@ -205,7 +205,7 @@ mod tests {
             .broadcast_phase(PhaseName::Unmask)
             .broadcast_sum_dict(DictionaryUpdate::Invalidate)
             .broadcast_seed_dict(DictionaryUpdate::Invalidate)
-            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(10))))
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
             .build();
 
         (state, event_publisher, event_subscriber)
@@ -214,8 +214,8 @@ mod tests {
     fn assert_params(params1: &RoundParameters, params2: &RoundParameters) {
         assert_ne!(params1.pk, params2.pk);
         assert_ne!(params1.seed, params2.seed);
-        assert!((params1.sum - params2.sum).abs() < f64::EPSILON);
-        assert!((params1.update - params2.update).abs() < f64::EPSILON);
+        assert!((params1.sum - params2.sum).abs() <= f64::EPSILON);
+        assert!((params1.update - params2.update).abs() <= f64::EPSILON);
         assert_eq!(params1.mask_config, params2.mask_config);
         assert_eq!(params1.model_length, params2.model_length);
     }
@@ -232,11 +232,11 @@ mod tests {
             state_before.round_params.seed
         );
         assert!(
-            (state_after.round_params.sum - state_before.round_params.sum).abs() < f64::EPSILON
+            (state_after.round_params.sum - state_before.round_params.sum).abs() <= f64::EPSILON
         );
         assert!(
             (state_after.round_params.update - state_before.round_params.update).abs()
-                < f64::EPSILON
+                <= f64::EPSILON
         );
         assert_eq!(
             state_after.round_params.mask_config,
@@ -301,7 +301,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_idle = state_machine.shared_state_as_ref().clone();
+        let state_after_idle = state_machine.as_ref().clone();
         assert_params(
             &state_after_idle.round_params,
             &state_before_idle.round_params,
@@ -362,7 +362,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_idle = state_machine.shared_state_as_ref().clone();
+        let state_after_idle = state_machine.as_ref().clone();
         let events_after_idle = EventSnapshot::from(&event_subscriber);
         assert_after_delete_dict_failure(
             &state_before_idle,
@@ -418,7 +418,7 @@ mod tests {
 
         let state_machine = state_machine.next().await.unwrap();
 
-        let state_after_idle = state_machine.shared_state_as_ref().clone();
+        let state_after_idle = state_machine.as_ref().clone();
         let events_after_idle = EventSnapshot::from(&event_subscriber);
 
         assert_params(
