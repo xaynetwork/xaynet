@@ -50,7 +50,7 @@ fn error_code_type_error(response: &Value) -> RedisError {
 ///
 /// Example:
 ///
-/// ```ignore
+/// ```compile_fail
 /// let sum_pks: Vec<PublicSigningKeyRead> = self.connection.hkeys("sum_dict").await?;
 /// for sum_pk in sum_pks {
 ///    let sum_pk_seed_dict: HashMap<PublicSigningKeyRead, EncryptedMaskSeedRead>

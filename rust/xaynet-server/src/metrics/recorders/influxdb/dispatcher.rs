@@ -79,6 +79,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn integration_dispatch_metric() {
         let settings = influx_settings();
         let mut task = Spawn::new(Dispatcher::new(settings.url, settings.db));
@@ -90,6 +91,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn integration_dispatch_event() {
         let settings = influx_settings();
         let mut task = Spawn::new(Dispatcher::new(settings.url, settings.db));
@@ -101,6 +103,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn integration_wrong_url() {
         let settings = influx_settings();
         let mut task = Spawn::new(Dispatcher::new("http://127.0.0.1:9998", settings.db));

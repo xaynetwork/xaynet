@@ -38,9 +38,9 @@ type DynModel = Box<(dyn std::convert::AsRef<xaynet_core::mask::Model> + Send)>;
 /// Note that by having only one trait, we can also use dynamic dispatch and actually
 /// get rid of all the generic parameters in the state machine.
 ///
-/// ```ignore
+/// ```compile_fail
 /// Box<dyn IO> // allowed
-/// Box<dyn ModelStore + Notify + XaynetClient // not allowed
+/// Box<dyn ModelStore + Notify + XaynetClient> // not allowed
 /// ```
 #[cfg_attr(test, mockall::automock(type Model=DynModel;))]
 #[async_trait]

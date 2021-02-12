@@ -32,7 +32,7 @@ impl GlobalRecorder {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```compile_fail
 /// // An event with just a title:
 /// event!("Error");
 ///
@@ -69,7 +69,7 @@ macro_rules! event {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```compile_fail
 /// // A basic metric:
 /// metric!(Measurement::RoundTotalNumber, 1);
 ///
