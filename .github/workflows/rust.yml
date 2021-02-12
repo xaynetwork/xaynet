@@ -209,14 +209,14 @@ jobs:
         working-directory: ./docker
         run: docker-compose up -d influxdb minio redis
 
-      - name: Run tests
+      - name: Run tests (unit & integration & doc)
         working-directory: ./rust
         env:
           RUSTFLAGS: "-D warnings"
         run: |
-          cargo test --all-targets
-          cargo test --all-targets --all-features
-          cargo test --all-features --doc
+          cargo test --lib --bins --examples --tests -- -Z unstable-options --include-ignored
+          cargo test --lib --bins --examples --tests --all-features -- -Z unstable-options --include-ignored
+          cargo test --doc --all-features
 
       - name: Stop docker-compose
         working-directory: ./docker

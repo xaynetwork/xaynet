@@ -25,6 +25,7 @@ use crate::{
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_no_restore() {
     let store = init_store().await;
     let smi = StateMachineInitializer::new(
@@ -58,6 +59,7 @@ async fn integration_state_machine_initializer_no_restore() {
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_no_state() {
     let store = init_store().await;
     let smi = StateMachineInitializer::new(
@@ -91,6 +93,7 @@ async fn integration_state_machine_initializer_no_state() {
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_without_global_model() {
     let pet_settings = pet_settings();
     let mask_settings = mask_settings();
@@ -137,6 +140,7 @@ async fn integration_state_machine_initializer_without_global_model() {
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_with_global_model() {
     let pet_settings = pet_settings();
     let mask_settings = mask_settings();
@@ -196,6 +200,7 @@ async fn integration_state_machine_initializer_with_global_model() {
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
     let pet_settings = pet_settings();
     let mask_settings = mask_settings();
@@ -241,6 +246,7 @@ async fn integration_state_machine_initializer_failed_because_of_wrong_size() {
 #[cfg(feature = "model-persistence")]
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_failed_to_find_global_model() {
     let pet_settings = pet_settings();
     let mask_settings = mask_settings();
@@ -277,6 +283,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
 
 #[tokio::test]
 #[serial]
+#[ignore]
 async fn integration_state_machine_initializer_reset_state() {
     let pet_settings = pet_settings();
     let mask_settings = mask_settings();

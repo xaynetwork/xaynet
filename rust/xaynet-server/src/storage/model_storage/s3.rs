@@ -395,6 +395,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_set_and_get_global_model() {
         let mut client = init_client().await;
 
@@ -410,6 +411,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_get_global_model_non_existent() {
         let mut client = init_client().await;
 
@@ -420,6 +422,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_global_model_already_exists() {
         let mut client = init_client().await;
 
@@ -446,6 +449,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_is_ready_ok() {
         let mut client = init_client().await;
 
@@ -455,6 +459,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_is_ready_ok_no_such_bucket() {
         // test that is_ready returns Ok even if the bucket doesn't exist
         let mut client = init_client().await;
@@ -469,6 +474,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_test_is_ready_err() {
         let mut client = init_disconnected_client().await;
 

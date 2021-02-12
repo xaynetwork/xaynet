@@ -567,6 +567,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_set_and_get_coordinator_state() {
         // test the writing and reading of the coordinator state
         let mut client = init_client().await;
@@ -581,6 +582,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_coordinator_empty() {
         // test the reading of a non existing coordinator state
         let mut client = init_client().await;
@@ -592,6 +594,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_incr_mask_score() {
         // test the increment of the mask counter
         let mut client = init_client().await;
@@ -616,6 +619,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_incr_mask_count_unknown_sum_pk() {
         // test the writing and reading of one mask
         let mut client = init_client().await;
@@ -635,6 +639,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_incr_mask_score_sum_pk_already_submitted() {
         // test the writing and reading of one mask
         let mut client = init_client().await;
@@ -658,6 +663,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_best_masks_only_one_mask() {
         // test the writing and reading of one mask
         let mut client = init_client().await;
@@ -680,6 +686,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_best_masks_two_masks() {
         // test the writing and reading of two masks
         // the first mask is incremented twice
@@ -716,6 +723,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_best_masks_no_mask() {
         // ensure that get_best_masks returns an empty vec if no mask exist
         let mut client = init_client().await;
@@ -726,6 +734,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_number_of_unique_masks_empty() {
         // ensure that get_best_masks returns an empty vec if no mask exist
         let mut client = init_client().await;
@@ -736,6 +745,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_number_of_unique_masks() {
         // ensure that get_best_masks returns an empty vec if no mask exist
         let mut client = init_client().await;
@@ -756,6 +766,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_sum_dict() {
         // test multiple sum dict related methods
         let mut client = init_client().await;
@@ -811,6 +822,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict() {
         let mut client = init_client().await;
 
@@ -829,6 +841,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_len_mis_match() {
         let mut client = init_client().await;
 
@@ -849,6 +862,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_unknown_sum_participant() {
         let mut client = init_client().await;
 
@@ -871,6 +885,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_update_pk_already_submitted() {
         let mut client = init_client().await;
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
@@ -890,6 +905,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_update_pk_already_exists_in_update_seed_dict() {
         let mut client = init_client().await;
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
@@ -917,6 +933,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_get_seed_dict_for_sum_pk() {
         let mut client = init_client().await;
         let mut sum_pks = create_and_add_sum_participant_entries(&mut client, 2).await;
@@ -937,6 +954,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_seed_dict_get_seed_dict_for_sum_pk_empty() {
         let mut client = init_client().await;
         let (sum_pk, _) = create_sum_participant_entry();
@@ -947,6 +965,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_flush_dicts() {
         let mut client = init_client().await;
 
@@ -996,6 +1015,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_flush_coordinator_data() {
         let mut client = init_client().await;
 
@@ -1029,6 +1049,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_set_and_get_latest_global_model_id() {
         // test the writing and reading of the global model id
         let mut client = init_client().await;
@@ -1043,6 +1064,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_is_ready_ok() {
         // test is_ready command
         let mut client = init_client().await;
@@ -1053,6 +1075,7 @@ pub(in crate) mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore]
     async fn integration_get_latest_global_model_id_empty() {
         // test the reading of a non existing global model id
         let mut client = init_client().await;
