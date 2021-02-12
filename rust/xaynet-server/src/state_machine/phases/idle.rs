@@ -175,80 +175,279 @@ where
 
 #[cfg(test)]
 mod tests {
-    use serial_test::serial;
-
     use super::*;
+
+    use std::sync::Arc;
+
+    use anyhow::anyhow;
+    use xaynet_core::common::RoundParameters;
+
     use crate::{
         state_machine::{
-            events::Event,
-            tests::{builder::StateMachineBuilder, utils},
+            coordinator::CoordinatorState,
+            events::{DictionaryUpdate, EventPublisher, EventSubscriber, ModelUpdate},
+            tests::{
+                utils::{assert_event_updated_with_id, enable_logging, init_shared, EventSnapshot},
+                CoordinatorStateBuilder,
+                EventBusBuilder,
+            },
         },
-        storage::{tests::init_store, CoordinatorStorage},
+        storage::{
+            tests::{utils::create_global_model, MockCoordinatorStore, MockModelStore},
+            Store,
+        },
     };
 
-    #[tokio::test]
-    #[serial]
-    async fn integration_round_id_is_updated_when_idle_phase_runs() {
-        let store = init_store().await;
-        let coordinator_state = utils::coordinator_state();
-        let (shared, _, event_subscriber) = utils::init_shared(coordinator_state, store);
+    fn state_and_events_from_unmask_phase() -> (CoordinatorState, EventPublisher, EventSubscriber) {
+        let state = CoordinatorStateBuilder::new().build();
 
-        let keys = event_subscriber.keys_listener();
-        let id = keys.get_latest().round_id;
-        assert_eq!(id, 0);
+        let (event_publisher, event_subscriber) = EventBusBuilder::new(&state)
+            .broadcast_phase(PhaseName::Unmask)
+            .broadcast_sum_dict(DictionaryUpdate::Invalidate)
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate)
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
+            .build();
 
-        let mut idle_phase = PhaseState::<Idle, _>::new(shared);
-        idle_phase.process().await.unwrap();
-        idle_phase.broadcast();
+        (state, event_publisher, event_subscriber)
+    }
 
-        let id = keys.get_latest().round_id;
-        assert_eq!(id, 1);
+    fn assert_params(params1: &RoundParameters, params2: &RoundParameters) {
+        assert_ne!(params1.pk, params2.pk);
+        assert_ne!(params1.seed, params2.seed);
+        assert!((params1.sum - params2.sum).abs() <= f64::EPSILON);
+        assert!((params1.update - params2.update).abs() <= f64::EPSILON);
+        assert_eq!(params1.mask_config, params2.mask_config);
+        assert_eq!(params1.model_length, params2.model_length);
+    }
+
+    fn assert_after_delete_dict_failure(
+        state_before: &CoordinatorState,
+        events_before: &EventSnapshot,
+        state_after: &CoordinatorState,
+        events_after: &EventSnapshot,
+    ) {
+        assert_eq!(state_after.round_params.pk, state_before.round_params.pk);
+        assert_eq!(
+            state_after.round_params.seed,
+            state_before.round_params.seed
+        );
+        assert!(
+            (state_after.round_params.sum - state_before.round_params.sum).abs() <= f64::EPSILON
+        );
+        assert!(
+            (state_after.round_params.update - state_before.round_params.update).abs()
+                <= f64::EPSILON
+        );
+        assert_eq!(
+            state_after.round_params.mask_config,
+            state_before.round_params.mask_config
+        );
+        assert_eq!(
+            state_after.round_params.model_length,
+            state_before.round_params.model_length
+        );
+
+        assert_ne!(state_after.round_id, state_before.round_id);
+        assert_eq!(state_after.keys, state_before.keys);
+        assert_eq!(state_after.sum, state_before.sum);
+        assert_eq!(state_after.update, state_before.update);
+        assert_eq!(state_after.sum2, state_before.sum2);
+        assert_eq!(state_after.keys.public, state_after.round_params.pk);
+        assert_eq!(state_after.round_id, 1);
+
+        assert_event_updated_with_id(&events_after.phase, &events_before.phase);
+        assert_eq!(events_after.phase.event, PhaseName::Idle);
+        assert_eq!(&events_after.keys, &events_before.keys);
+        assert_eq!(&events_after.sum_dict, &events_before.sum_dict);
+        assert_eq!(&events_after.seed_dict, &events_before.seed_dict);
+        assert_eq!(events_after.params, events_before.params);
+        assert_eq!(events_after.model, events_before.model);
     }
 
     #[tokio::test]
-    #[serial]
-    async fn integration_idle_to_sum() {
-        let mut store = init_store().await;
-        let (state_machine, _request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_round_id(2)
-            .build();
+    async fn test_idle_to_sum_phase() {
+        // No Storage errors
+        // lets pretend we come from the unmask phase
+        //
+        // What should happen:
+        // 1. increase round id by 1
+        // 2. broadcast Idle phase
+        // 3. delete the sum/seed/mask dict
+        // 4. update coordinator keys
+        // 5. update round thresholds (not implemented yet)
+        // 6. update round seeds
+        // 7. save the new coordinator state
+        // 8. broadcast updated keys
+        // 9. broadcast new round parameters
+        // 10. move into sum phase
+        //
+        // What should not happen:
+        // - the global model has been invalidated
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_delete_dicts().return_once(move || Ok(()));
+        cs.expect_set_coordinator_state()
+            .return_once(move |_| Ok(()));
+        let store = Store::new(cs, MockModelStore::new());
+
+        let (state, event_publisher, event_subscriber) = state_and_events_from_unmask_phase();
+        let events_before_idle = EventSnapshot::from(&event_subscriber);
+        let state_before_idle = state.clone();
+
+        let (shared, _request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
         assert!(state_machine.is_idle());
 
-        let initial_round_params = events.params_listener().get_latest().event;
-        let initial_keys = events.keys_listener().get_latest().event;
-        let initial_seed = initial_round_params.seed.clone();
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_idle = state_machine.as_ref().clone();
+        assert_params(
+            &state_after_idle.round_params,
+            &state_before_idle.round_params,
+        );
+        assert_ne!(state_after_idle.keys, state_before_idle.keys);
+        assert_ne!(state_after_idle.round_id, state_before_idle.round_id);
+        assert_eq!(state_after_idle.sum, state_before_idle.sum);
+        assert_eq!(state_after_idle.update, state_before_idle.update);
+        assert_eq!(state_after_idle.sum2, state_before_idle.sum2);
+        assert_eq!(
+            state_after_idle.keys.public,
+            state_after_idle.round_params.pk
+        );
+        assert_eq!(state_after_idle.round_id, 1);
+
+        let events_after_idle = EventSnapshot::from(&event_subscriber);
+        assert_event_updated_with_id(&events_after_idle.keys, &events_before_idle.keys);
+        assert_event_updated_with_id(&events_after_idle.params, &events_before_idle.params);
+        assert_event_updated_with_id(&events_after_idle.phase, &events_before_idle.phase);
+        assert_eq!(events_after_idle.phase.event, PhaseName::Idle);
+        assert_eq!(events_after_idle.sum_dict, events_before_idle.sum_dict);
+        assert_eq!(events_after_idle.seed_dict, events_before_idle.seed_dict);
+        assert_eq!(events_after_idle.model, events_before_idle.model);
+
+        assert!(state_machine.is_sum());
+    }
+
+    #[tokio::test]
+    async fn test_idle_to_sum_delete_dicts_failed() {
+        // Storage:
+        // - delete_dicts fails
+        //
+        // What should happen:
+        // 1. increase round id by 1
+        // 2. broadcast Idle phase
+        // 3. delete the sum/seed/mask dict (fails)
+        // 4. move into error phase
+        //
+        // What should not happen:
+        // - new keys have been broadcasted
+        // - new round parameters have been broadcasted
+        // - the global model has been invalidated
+        // - the state machine has moved into sum phase
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_delete_dicts()
+            .return_once(move || Err(anyhow!("")));
+        let store = Store::new(cs, MockModelStore::new());
+
+        let (state, event_publisher, event_subscriber) = state_and_events_from_unmask_phase();
+        let events_before_idle = EventSnapshot::from(&event_subscriber);
+        let state_before_idle = state.clone();
+
+        let (shared, _request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        assert!(state_machine.is_idle());
 
         let state_machine = state_machine.next().await.unwrap();
-        assert!(state_machine.is_sum());
 
-        let PhaseState { shared, .. } = state_machine.into_sum_phase_state();
-
-        let sum_dict = store.sum_dict().await.unwrap();
-        assert!(sum_dict.is_none());
-
-        let new_round_params = shared.state.round_params.clone();
-        let new_keys = shared.state.keys.clone();
-
-        // Make sure the seed and keys have updated
-        assert_ne!(initial_seed, new_round_params.seed);
-        assert_ne!(initial_keys, new_keys);
-
-        fn expected_event<T>(event: T) -> Event<T> {
-            Event { round_id: 2, event }
-        }
-
-        // Check all the events that should be emitted during the idle phase
-        assert_eq!(
-            events.phase_listener().get_latest(),
-            expected_event(PhaseName::Idle),
+        let state_after_idle = state_machine.as_ref().clone();
+        let events_after_idle = EventSnapshot::from(&event_subscriber);
+        assert_after_delete_dict_failure(
+            &state_before_idle,
+            &events_before_idle,
+            &state_after_idle,
+            &events_after_idle,
         );
-        assert_eq!(
-            events.keys_listener().get_latest(),
-            expected_event(new_keys),
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::Idle(IdleError::DeleteDictionaries(_))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_idle_to_sum_save_state_failed() {
+        // Storage:
+        // - set_coordinator_state fails
+        //
+        // What should happen:
+        // 1. increase round id by 1
+        // 2. broadcast Idle phase
+        // 3. delete the sum/seed/mask dict
+        // 4. update coordinator keys
+        // 5. update round thresholds (not implemented yet)
+        // 6. update round seeds
+        // 7. save the new coordinator state (fails)
+
+        // 6. broadcast updated keys
+
+        // 10. move into error phase
+        //
+        // What should not happen:
+        // - new round parameters have been broadcast
+        // - the global model has been invalidated
+        // - the state machine has moved into sum phase
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_delete_dicts().return_once(move || Ok(()));
+        cs.expect_set_coordinator_state()
+            .return_once(move |_| Err(anyhow!("")));
+        let store = Store::new(cs, MockModelStore::new());
+
+        let (state, event_publisher, event_subscriber) = state_and_events_from_unmask_phase();
+        let events_before_idle = EventSnapshot::from(&event_subscriber);
+        let state_before_idle = state.clone();
+
+        let (shared, _request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Idle, _>::new(shared));
+        assert!(state_machine.is_idle());
+
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_idle = state_machine.as_ref().clone();
+        let events_after_idle = EventSnapshot::from(&event_subscriber);
+
+        assert_params(
+            &state_after_idle.round_params,
+            &state_before_idle.round_params,
         );
+        assert_ne!(state_after_idle.keys, state_before_idle.keys);
+        assert_ne!(state_after_idle.round_id, state_before_idle.round_id);
+        assert_eq!(state_after_idle.sum, state_before_idle.sum);
+        assert_eq!(state_after_idle.update, state_before_idle.update);
+        assert_eq!(state_after_idle.sum2, state_before_idle.sum2);
         assert_eq!(
-            events.params_listener().get_latest(),
-            expected_event(new_round_params),
+            state_after_idle.keys.public,
+            state_after_idle.round_params.pk
         );
+        assert_eq!(state_after_idle.round_id, 1);
+
+        assert_event_updated_with_id(&events_after_idle.phase, &events_before_idle.phase);
+        assert_eq!(events_after_idle.phase.event, PhaseName::Idle);
+        assert_eq!(&events_after_idle.keys, &events_before_idle.keys);
+        assert_eq!(&events_after_idle.sum_dict, &events_before_idle.sum_dict);
+        assert_eq!(&events_after_idle.seed_dict, &events_before_idle.seed_dict);
+        assert_eq!(events_after_idle.params, events_before_idle.params);
+        assert_eq!(events_after_idle.model, events_before_idle.model);
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::Idle(IdleError::SetCoordinatorState(_))
+        ))
     }
 }

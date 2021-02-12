@@ -186,148 +186,370 @@ where
 
 #[cfg(test)]
 mod tests {
-    use serial_test::serial;
-
     use super::*;
+
+    use anyhow::anyhow;
+    use xaynet_core::{SeedDict, SumDict};
+
     use crate::{
         state_machine::{
-            events::Event,
+            coordinator::CoordinatorState,
+            events::{EventPublisher, EventSubscriber, ModelUpdate},
             tests::{
-                builder::StateMachineBuilder,
-                utils::{self, Participant},
+                utils::{
+                    assert_event_updated,
+                    enable_logging,
+                    init_shared,
+                    send_update_messages,
+                    send_update_messages_with_model,
+                    EventSnapshot,
+                },
+                CoordinatorStateBuilder,
+                EventBusBuilder,
             },
         },
-        storage::{tests::init_store, CoordinatorStorage},
-    };
-    use xaynet_core::{
-        common::{RoundParameters, RoundSeed},
-        crypto::{ByteObject, EncryptKeyPair},
-        mask::{FromPrimitives, Model, Scalar},
-        SeedDict,
-        SumDict,
-        UpdateSeedDict,
+        storage::{
+            tests::{
+                utils::{create_global_model, create_mask},
+                MockCoordinatorStore,
+                MockModelStore,
+            },
+            LocalSeedDictAdd,
+            LocalSeedDictAddError,
+            Store,
+        },
     };
 
-    impl Update {
-        pub fn aggregation(&self) -> &Aggregation {
-            &self.model_agg
-        }
+    fn events_from_sum_phase(state: &CoordinatorState) -> (EventPublisher, EventSubscriber) {
+        EventBusBuilder::new(state)
+            .broadcast_phase(PhaseName::Sum)
+            .broadcast_sum_dict(DictionaryUpdate::New(Arc::new(SumDict::new())))
+            .broadcast_seed_dict(DictionaryUpdate::Invalidate)
+            .broadcast_model(ModelUpdate::New(Arc::new(create_global_model(1))))
+            .build()
+    }
+
+    fn assert_after_phase_success(
+        state_before: &CoordinatorState,
+        events_before: &EventSnapshot,
+        state_after: &CoordinatorState,
+        events_after: &EventSnapshot,
+    ) {
+        assert_eq!(state_after, state_before);
+
+        assert_event_updated(&events_after.phase, &events_before.phase);
+        assert_event_updated(&events_after.seed_dict, &events_before.seed_dict);
+        assert_eq!(events_after.keys, events_before.keys);
+        assert_eq!(events_after.params, events_before.params);
+        assert_eq!(events_after.phase.event, PhaseName::Update);
+        assert_eq!(events_after.sum_dict, events_before.sum_dict);
+        assert_eq!(events_after.model, events_before.model);
+    }
+
+    fn assert_after_phase_failure(
+        state_before: &CoordinatorState,
+        events_before: &EventSnapshot,
+        state_after: &CoordinatorState,
+        events_after: &EventSnapshot,
+    ) {
+        assert_eq!(state_after, state_before);
+
+        assert_event_updated(&events_after.phase, &events_before.phase);
+        assert_eq!(events_after.keys, events_before.keys);
+        assert_eq!(events_after.params, events_before.params);
+        assert_eq!(events_after.phase.event, PhaseName::Update);
+        assert_eq!(events_after.sum_dict, events_before.sum_dict);
+        assert_eq!(events_after.seed_dict, events_before.seed_dict);
+        assert_eq!(events_after.model, events_before.model);
     }
 
     #[tokio::test]
-    #[serial]
-    pub async fn integration_update_to_sum2() {
-        utils::enable_logging();
-        let model_length = 4;
-        let round_params = RoundParameters {
-            pk: EncryptKeyPair::generate().public,
-            sum: 0.5,
-            update: 1.0,
-            seed: RoundSeed::generate(),
-            mask_config: utils::mask_config(),
-            model_length,
-        };
-        let n_updaters = 1;
-        let n_summers = 1;
+    async fn test_update_to_sum2_phase() {
+        // No Storage errors
+        // lets pretend we come from the sum phase
+        //
+        // What should happen:
+        // 1. broadcast Update phase
+        // 2. accept 10 update messages
+        // 3. fetch seed dict
+        // 4. broadcast seed dict
+        // 5. move into sum2 phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        enable_logging();
 
-        // Find a sum participant and an update participant for the
-        // given seed and ratios.
-        let summer = utils::generate_summer(round_params.clone());
-        let updater = utils::generate_updater(round_params.clone());
-
-        // Initialize the update phase state
-        let mut frozen_sum_dict = SumDict::new();
-        frozen_sum_dict.insert(summer.keys.public, summer.ephm_keys.public);
-
-        let aggregation = Aggregation::new(utils::mask_config(), model_length);
-
-        let mut store = init_store().await;
-        // Create the state machine
-        let (state_machine, request_tx, events) = StateMachineBuilder::new(store.clone())
-            .with_seed(round_params.seed.clone())
-            .with_phase(Update {
-                model_agg: aggregation.clone(),
-                seed_dict: None,
-            })
-            .with_sum_probability(round_params.sum)
-            .with_update_probability(round_params.update)
-            .with_sum_count_min(n_summers)
-            .with_sum_count_max(n_summers + 10)
-            .with_update_count_min(n_updaters)
-            .with_update_count_max(n_updaters + 10)
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_add_local_seed_dict()
+            .times(10)
+            .returning(move |_, _| Ok(LocalSeedDictAdd(Ok(()))));
+        cs.expect_seed_dict()
+            .return_once(move || Ok(Some(SeedDict::new())));
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_update_count_min(10)
+            .with_update_count_max(10)
             .with_update_time_min(1)
-            .with_update_time_max(2)
-            .with_mask_config(utils::mask_settings().into())
             .build();
 
-        // We need to add the sum participant to follow the pet protocol
-        store
-            .add_sum_participant(&summer.keys.public, &summer.ephm_keys.public)
-            .await
-            .unwrap();
+        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let events_before_update = EventSnapshot::from(&event_subscriber);
+        let state_before_update = state.clone();
 
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Update, _>::new(shared));
         assert!(state_machine.is_update());
 
-        // Create an update request.
-        let expected_upds = (round_params.update * n_updaters as f64) as u64;
-        let scalar = Scalar::new(1, expected_upds);
-        let model = Model::from_primitives(vec![0; model_length].into_iter()).unwrap();
-        let (mask_seed, masked_model) = updater.compute_masked_model(&model, scalar);
-        let local_seed_dict = Participant::build_seed_dict(&frozen_sum_dict, &mask_seed);
-        let update_msg =
-            updater.compose_update_message(masked_model.clone(), local_seed_dict.clone());
-        let request_fut = async { request_tx.msg(&update_msg).await.unwrap() };
+        send_update_messages(10, request_tx.clone());
 
-        // Have the state machine process the request
-        let transition_fut = async { state_machine.next().await.unwrap() };
-        let (_response, state_machine) = tokio::join!(request_fut, transition_fut);
+        let state_machine = state_machine.next().await.unwrap();
 
-        // Extract state of the state machine
-        let PhaseState {
-            private: sum2_state,
-            ..
-        } = state_machine.into_sum2_phase_state();
-
-        // Check the initial state of the sum2 phase.
-
-        // The sum dict should be unchanged
-        let sum_dict = store.sum_dict().await.unwrap().unwrap();
-        assert_eq!(sum_dict, frozen_sum_dict);
-        // We have only one updater, so the aggregation should contain
-        // the masked model from that updater
-        assert_eq!(
-            <Aggregation as Into<MaskObject>>::into(sum2_state.aggregation().clone()),
-            masked_model
-        );
-        let best_masks = store.best_masks().await.unwrap();
-        assert!(best_masks.is_none());
-
-        // Check all the events that should be emitted during the update
-        // phase
-        assert_eq!(
-            events.phase_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: PhaseName::Update,
-            }
+        let state_after_update = state_machine.as_ref().clone();
+        let events_after_update = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_success(
+            &state_before_update,
+            &events_before_update,
+            &state_after_update,
+            &events_after_update,
         );
 
-        // Compute the global seed dictionary that we expect to be
-        // broadcasted. It has a single entry for our sum
-        // participant. That entry is an UpdateSeedDictionary that
-        // contains the encrypted mask seed from our update
-        // participant.
-        let mut global_seed_dict = SeedDict::new();
-        let mut entry = UpdateSeedDict::new();
-        let encrypted_mask_seed = local_seed_dict.values().next().unwrap().clone();
-        entry.insert(updater.keys.public, encrypted_mask_seed);
-        global_seed_dict.insert(summer.keys.public, entry);
-        assert_eq!(
-            events.seed_dict_listener().get_latest(),
-            Event {
-                round_id: 0,
-                event: DictionaryUpdate::New(Arc::new(global_seed_dict)),
-            }
+        assert!(state_machine.is_sum2());
+    }
+
+    #[tokio::test]
+    async fn test_update_to_sum2_fetch_seed_dict_failed() {
+        // Storage errors
+        // - seed_dict fails
+        //
+        // What should happen:
+        // 1. broadcast Update phase
+        // 2. accept 1 update message
+        // 3. fetch seed dict (fails)
+        // 4. move into error phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        // - the seed dict has been broadcasted
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_add_local_seed_dict()
+            .times(1)
+            .returning(move |_, _| Ok(LocalSeedDictAdd(Ok(()))));
+        cs.expect_seed_dict().return_once(move || Err(anyhow!("")));
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_update_count_min(1)
+            .with_update_count_max(1)
+            .with_update_time_min(1)
+            .with_update_time_max(5)
+            .build();
+
+        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let events_before_update = EventSnapshot::from(&event_subscriber);
+        let state_before_update = state.clone();
+
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Update, _>::new(shared));
+        assert!(state_machine.is_update());
+
+        send_update_messages(1, request_tx.clone());
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_update = state_machine.as_ref().clone();
+        let events_after_update = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_failure(
+            &state_before_update,
+            &events_before_update,
+            &state_after_update,
+            &events_after_update,
         );
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::Update(UpdateError::FetchSeedDict(_))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_update_to_sum2_seed_dict_none() {
+        // No Storage errors
+        //
+        // What should happen:
+        // 1. broadcast Update phase
+        // 2. accept 1 update message
+        // 3. fetch seed dict (no storage error but the seed dict is None)
+        // 4. move into error phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        // - the seed dict has been broadcasted
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_add_local_seed_dict()
+            .times(1)
+            .returning(move |_, _| Ok(LocalSeedDictAdd(Ok(()))));
+        cs.expect_seed_dict().return_once(move || Ok(None));
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_update_count_min(1)
+            .with_update_count_max(1)
+            .with_update_time_min(1)
+            .with_update_time_max(5)
+            .build();
+
+        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let events_before_update = EventSnapshot::from(&event_subscriber);
+        let state_before_update = state.clone();
+
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Update, _>::new(shared));
+        assert!(state_machine.is_update());
+
+        send_update_messages(1, request_tx.clone());
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_update = state_machine.as_ref().clone();
+        let events_after_update = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_failure(
+            &state_before_update,
+            &events_before_update,
+            &state_after_update,
+            &events_after_update,
+        );
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::Update(UpdateError::NoSeedDict)
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_aggregation_error() {
+        // No Storage errors
+        //
+        // What should happen:
+        // 1. broadcast Update phase
+        // 2. reject 3 update messages (validation of the models fail due to an invalid length)
+        // 3. accept 3 update messages
+        // 4. fetch seed dict
+        // 5. broadcast seed dict
+        // 6. move into sum2 phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_add_local_seed_dict()
+            .times(3)
+            .returning(move |_, _| Ok(LocalSeedDictAdd(Ok(()))));
+        cs.expect_seed_dict()
+            .return_once(move || Ok(Some(SeedDict::new())));
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_update_count_min(3)
+            .with_update_count_max(3)
+            .with_update_time_min(1)
+            .build();
+
+        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let events_before_update = EventSnapshot::from(&event_subscriber);
+        let state_before_update = state.clone();
+
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Update, _>::new(shared));
+        assert!(state_machine.is_update());
+
+        send_update_messages_with_model(3, request_tx.clone(), create_mask(2, 1));
+        send_update_messages(3, request_tx.clone());
+
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_update = state_machine.as_ref().clone();
+        let events_after_update = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_success(
+            &state_before_update,
+            &events_before_update,
+            &state_after_update,
+            &events_after_update,
+        );
+
+        assert!(state_machine.is_sum2());
+    }
+
+    #[tokio::test]
+    async fn test_rejected_messages_pet_error() {
+        // No Storage errors
+        //
+        // What should happen:
+        // 1. broadcast Update phase
+        // 2. reject 3 update messages (pet error LocalSeedDictAddError::LengthMisMatch)
+        // 3. phase should timeout
+        // 4. move into error phase
+        //
+        // What should not happen:
+        // - the shared state has been changed
+        // - the global model has been invalidated
+        // - the sum dict has been invalidated
+        // - the seed dict has been broadcasted
+        enable_logging();
+
+        let mut cs = MockCoordinatorStore::new();
+        cs.expect_add_local_seed_dict()
+            .times(3)
+            .returning(move |_, _| {
+                Ok(LocalSeedDictAdd(Err(LocalSeedDictAddError::LengthMisMatch)))
+            });
+        let store = Store::new(cs, MockModelStore::new());
+        let state = CoordinatorStateBuilder::new()
+            .with_round_id(1)
+            .with_update_count_min(3)
+            .with_update_count_max(3)
+            .with_update_time_min(0)
+            .with_update_time_max(2)
+            .build();
+
+        let (event_publisher, event_subscriber) = events_from_sum_phase(&state);
+        let events_before_update = EventSnapshot::from(&event_subscriber);
+        let state_before_update = state.clone();
+
+        let (shared, request_tx) = init_shared(state, store, event_publisher);
+        let state_machine = StateMachine::from(PhaseState::<Update, _>::new(shared));
+        assert!(state_machine.is_update());
+
+        send_update_messages(3, request_tx.clone());
+
+        let state_machine = state_machine.next().await.unwrap();
+
+        let state_after_update = state_machine.as_ref().clone();
+        let events_after_update = EventSnapshot::from(&event_subscriber);
+        assert_after_phase_failure(
+            &state_before_update,
+            &events_before_update,
+            &state_after_update,
+            &events_after_update,
+        );
+
+        assert!(state_machine.is_failure());
+        assert!(matches!(
+            state_machine.into_failure_phase_state().private.error,
+            PhaseError::PhaseTimeout(_)
+        ))
     }
 }

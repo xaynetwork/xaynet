@@ -204,7 +204,7 @@ macro_rules! rejected {
     };
 }
 
-/// Records a message discared metric.
+/// Records a message discarded metric.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! discarded {

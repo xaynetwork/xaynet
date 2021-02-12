@@ -77,6 +77,11 @@ impl EventPublisher {
             event: keys,
         });
 
+        let (params_tx, params_rx) = watch::channel::<Event<RoundParameters>>(Event {
+            round_id,
+            event: params,
+        });
+
         let (phase_tx, phase_rx) = watch::channel::<Event<PhaseName>>(Event {
             round_id,
             event: phase,
@@ -98,11 +103,6 @@ impl EventPublisher {
                 round_id,
                 event: DictionaryUpdate::Invalidate,
             });
-
-        let (params_tx, params_rx) = watch::channel::<Event<RoundParameters>>(Event {
-            round_id,
-            event: params,
-        });
 
         let publisher = EventPublisher {
             round_id,
@@ -220,6 +220,11 @@ where
 {
     pub fn get_latest(&self) -> Event<E> {
         self.0.borrow().clone()
+    }
+
+    #[cfg(test)]
+    pub async fn changed(&mut self) -> Result<(), watch::error::RecvError> {
+        self.0.changed().await
     }
 }
 

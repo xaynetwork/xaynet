@@ -203,8 +203,8 @@ where
 {
     async fn is_ready(&mut self) -> StorageResult<()> {
         tokio::try_join!(
-            self.model.is_ready(),
             self.coordinator.is_ready(),
+            self.model.is_ready(),
             self.trust_anchor.is_ready()
         )
         .map(|_| ())

@@ -90,7 +90,7 @@ impl From<PetSettingsSum2> for PhaseParameters {
 }
 
 /// The coordinator state.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoordinatorState {
     /// The credentials of the coordinator.
     pub keys: EncryptKeyPair,

@@ -1,12 +1,13 @@
 use tracing::Span;
+use xaynet_core::message::Message;
 
 use crate::state_machine::{
+    coordinator::CoordinatorState,
     events::DictionaryUpdate,
     phases::{Failure, Idle, PhaseState, Shutdown, Sum, Sum2, Unmask, Update},
     requests::{RequestError, RequestSender},
     StateMachine,
 };
-use xaynet_core::message::Message;
 
 impl RequestSender {
     pub async fn msg(&self, msg: &Message) -> Result<(), RequestError> {
@@ -89,6 +90,20 @@ impl<T> StateMachine<T> {
         match self {
             StateMachine::Shutdown(state) => state,
             _ => panic!("not in shutdown state"),
+        }
+    }
+}
+
+impl<T> AsRef<CoordinatorState> for StateMachine<T> {
+    fn as_ref(&self) -> &CoordinatorState {
+        match self {
+            StateMachine::Idle(state) => &state.shared.state,
+            StateMachine::Sum(state) => &state.shared.state,
+            StateMachine::Update(state) => &state.shared.state,
+            StateMachine::Sum2(state) => &state.shared.state,
+            StateMachine::Unmask(state) => &state.shared.state,
+            StateMachine::Failure(state) => &state.shared.state,
+            StateMachine::Shutdown(state) => &state.shared.state,
         }
     }
 }

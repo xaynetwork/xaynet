@@ -138,6 +138,11 @@ impl RequestSender {
             RequestError::InternalError("failed to receive response from the state machine")
         })?
     }
+
+    #[cfg(test)]
+    pub fn is_closed(&self) -> bool {
+        self.0.is_closed()
+    }
 }
 
 /// A channel for sending the state machine to send the response to a
