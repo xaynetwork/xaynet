@@ -16,8 +16,8 @@ pub struct Period {
 }
 
 impl Period {
-    pub fn new(unit: PeriodUnit, n: u32) -> Period {
-        Period { unit, n }
+    pub fn new(unit: PeriodUnit, n: u32) -> Self {
+        Self { unit, n }
     }
 }
 
@@ -28,8 +28,8 @@ pub struct DataPointMetadata {
 }
 
 impl DataPointMetadata {
-    pub fn new(period: Period, end: DateTime<Utc>) -> DataPointMetadata {
-        DataPointMetadata { period, end }
+    pub fn new(period: Period, end: DateTime<Utc>) -> Self {
+        Self { period, end }
     }
 }
 

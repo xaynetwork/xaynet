@@ -1512,7 +1512,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 [[package]]
 name = "isar-core"
 version = "0.0.0"
-source = "git+https://github.com/isar/isar-core?rev=e1e7e08c232d31965d3bf59cbd6f7b43ddc6e5a5#e1e7e08c232d31965d3bf59cbd6f7b43ddc6e5a5"
+source = "git+https://github.com/isar/isar-core?rev=9165741a3660c84747596d2dd5368cd13c1e9171#9165741a3660c84747596d2dd5368cd13c1e9171"
 dependencies = [
  "byteorder",
  "crossbeam-channel",
@@ -1523,6 +1523,7 @@ dependencies = [
  "libc",
  "lmdb-sys",
  "once_cell",
+ "paste",
  "rand 0.8.3",
  "serde 1.0.123",
  "serde_json",
@@ -1630,7 +1631,7 @@ checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 [[package]]
 name = "lmdb-sys"
 version = "0.1.0"
-source = "git+https://github.com/isar/isar-core?rev=e1e7e08c232d31965d3bf59cbd6f7b43ddc6e5a5#e1e7e08c232d31965d3bf59cbd6f7b43ddc6e5a5"
+source = "git+https://github.com/isar/isar-core?rev=9165741a3660c84747596d2dd5368cd13c1e9171#9165741a3660c84747596d2dd5368cd13c1e9171"
 dependencies = [
  "cc",
  "libc",

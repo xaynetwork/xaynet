@@ -2,21 +2,19 @@ use chrono::{DateTime, Utc};
 use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
 use std::vec::IntoIter;
 
-use crate::database::common::{FieldProperty, IsarAdapter};
+use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ScreenRoute {
     pub name: String,
     pub created_at: DateTime<Utc>,
-    pub object_id: Option<String>,
 }
 
 impl ScreenRoute {
-    pub fn new<N: Into<String>>(name: N, created_at: DateTime<Utc>) -> ScreenRoute {
-        ScreenRoute {
+    pub fn new<N: Into<String>>(name: N, created_at: DateTime<Utc>) -> Self {
+        Self {
             name: name.into(),
             created_at,
-            object_id: None,
         }
     }
 }
@@ -34,4 +32,11 @@ impl IsarAdapter for ScreenRoute {
         object_builder.write_string(Some(&self.created_at.to_rfc3339()));
         object_builder.write_string(Some(&self.name));
     }
+
+    fn read(_bytes: &[u8]) -> ScreenRoute {
+        // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
+        todo!()
+    }
 }
+
+impl SchemaGenerator<ScreenRoute> for ScreenRoute {}

@@ -3,7 +3,7 @@ use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
 use std::vec::IntoIter;
 
 use crate::database::{
-    common::{FieldProperty, IsarAdapter},
+    common::{FieldProperty, IsarAdapter, SchemaGenerator},
     screen_route::data_model::ScreenRoute,
 };
 
@@ -29,8 +29,8 @@ impl<'screen> AnalyticsEvent<'screen> {
         event_type: AnalyticsEventType,
         timestamp: DateTime<Utc>,
         screen_route: Option<&'screen ScreenRoute>,
-    ) -> AnalyticsEvent {
-        AnalyticsEvent {
+    ) -> Self {
+        Self {
             name: name.into(),
             event_type,
             timestamp,
@@ -39,7 +39,7 @@ impl<'screen> AnalyticsEvent<'screen> {
     }
 }
 
-impl<'a> IsarAdapter for AnalyticsEvent<'a> {
+impl<'screen> IsarAdapter for AnalyticsEvent<'screen> {
     fn into_field_properties() -> IntoIter<FieldProperty> {
         // NOTE: properties need to be ordered by type. Properties with the same type need to be ordered alphabetically
         // https://github.com/isar/isar-core/blob/1ea9f27edfd6e3708daa47ac6a17995b628f31a6/src/schema/collection_schema.rs
@@ -58,4 +58,11 @@ impl<'a> IsarAdapter for AnalyticsEvent<'a> {
         object_builder.write_string(self.screen_route.map(|screen| screen.name.as_ref()));
         object_builder.write_string(Some(&self.timestamp.to_rfc3339()));
     }
+
+    fn read(_bytes: &[u8]) -> AnalyticsEvent<'screen> {
+        // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
+        todo!()
+    }
 }
+
+impl<'screen> SchemaGenerator<AnalyticsEvent<'screen>> for AnalyticsEvent<'screen> {}

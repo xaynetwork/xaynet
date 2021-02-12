@@ -8,8 +8,8 @@ use crate::{
 };
 
 impl<'a> CalcScreenEnterCount<'a> {
-    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent>) -> CalcScreenEnterCount {
-        CalcScreenEnterCount { metadata, events }
+    pub fn new(metadata: DataPointMetadata, events: Vec<AnalyticsEvent<'a>>) -> Self {
+        Self { metadata, events }
     }
 }
 
