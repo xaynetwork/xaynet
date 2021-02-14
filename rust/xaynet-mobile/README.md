@@ -19,30 +19,25 @@ RUSTUP_TOOLCHAIN=nightly cbindgen \
 
 ## Run tests
 
-### macOS
-
 ```
-cc -o tests/ffi_test.o -Wl,-dead_strip -I. tests/ffi_test.c ../target/debug/libxaynet_mobile.a -framework Security -framework Foundation
-./tests/ffi_test.o
-```
-
-### Linux
-
-```
-gcc \
-    tests/ffi_test.c
-    -Wall \
-    -I. \
-    -pthread -Wl,--no-as-needed -lm -ldl \
-    ../target/debug/libxaynet_mobile.a \
-    -o tests/ffi_test.o
-./tests/ffi_test.o
+cargo build
+cargo test
 ```
 
 To check for memory leaks, you can use Valgrind:
 
+
+https://stackoverflow.com/questions/24745120/how-to-set-dynamic-link-library-path-and-environment-variable-for-a-process-in-v
 ```
-valgrind --tool=memcheck  --leak-check=full --show-leak-kinds=all -s ./tests/ffi_test.o
+cargo test
+    Finished test [unoptimized + debuginfo] target(s) in 0.21s
+     Running /Users/robert/projects/xain-fl/rust/target/debug/deps/xaynet_mobile-640128687334a8a4
+
+valgrind --tool=memcheck  --leak-check=full --show-leak-kinds=all -s --trace-children=yes env INLINE_C_RS_CFLAGS="-I/Users/robert/projects/xain-fl/rust/xaynet-mobile -L/Users/robert/projects/xain-fl/rust/target/debug -D_DEBUG" INLINE_C_RS_LDFLAGS="/Users/robert/projects/xain-fl/rust/target/debug/libxaynet_mobile.dylib -framework Security -framework Foundation" ../target/debug/deps/xaynet_mobile-640128687334a8a4
+
+valgrind ../target/debug/deps/xaynet_mobile-640128687334a8a4
 ```
+
+macos big sur unsupported https://github.com/LouisBrunner/valgrind-macos/issues/21
 
 [`cbindgen`]: https://github.com/eqrion/cbindgen/

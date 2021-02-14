@@ -109,3 +109,114 @@ impl TryInto<(String, PetSettings)> for Settings {
         Ok((url, pet_settings))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_settings_new() {
+        (assert_c! {
+            #include "xaynet_ffi.h"
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+                xaynet_ffi_settings_destroy(settings);
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_settings_set_keys() {
+        (assert_c! {
+            #include <assert.h>
+
+            #include "xaynet_ffi.h"
+
+            int main() {
+                assert(xaynet_ffi_crypto_init() == OK); // "failed to init crypto"
+                Settings *settings = xaynet_ffi_settings_new();
+                const KeyPair *keys = xaynet_ffi_generate_key_pair();
+                int err = xaynet_ffi_settings_set_keys(settings, keys);
+                assert(!err); // "failed to set keys"
+                xaynet_ffi_forget_key_pair(keys);
+
+                xaynet_ffi_settings_destroy(settings);
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_settings_set_url() {
+        (assert_c! {
+            #include <assert.h>
+            #include <string.h>
+
+            #include "xaynet_ffi.h"
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+
+                int err = xaynet_ffi_settings_set_url(settings, NULL);
+                assert(err == ERR_INVALID_URL); // "settings invalid URL should fail"
+
+                char *url = "http://localhost:1234";
+                err = xaynet_ffi_settings_set_url(settings, url);
+                assert(!err); // "failed to set url"
+
+                char *url2 = strdup(url);
+                err = xaynet_ffi_settings_set_url(settings, url2);
+                assert(!err); // "failed to set url from allocated string"
+
+                // cleanup
+                free(url2);
+                xaynet_ffi_settings_destroy(settings);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_settings() {
+        (assert_c! {
+            #include <assert.h>
+
+            #include "xaynet_ffi.h"
+
+            void with_keys(Settings *settings) {
+                const KeyPair *keys = xaynet_ffi_generate_key_pair();
+                int err = xaynet_ffi_settings_set_keys(settings, keys);
+                assert(!err);
+                xaynet_ffi_forget_key_pair(keys);
+              }
+
+            void with_url(Settings *settings) {
+                int err = xaynet_ffi_settings_set_url(settings, "http://localhost:1234");
+                assert(!err);
+            }
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+                with_keys(settings);
+                int err = xaynet_ffi_check_settings(settings);
+                assert(err == ERR_SETTINGS_URL); // "expected missing url error"
+                xaynet_ffi_settings_destroy(settings);
+
+                settings = xaynet_ffi_settings_new();
+                with_url(settings);
+                err = xaynet_ffi_check_settings(settings);
+                assert(err == ERR_SETTINGS_KEYS); // "expected missing keys error"
+                xaynet_ffi_settings_destroy(settings);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}

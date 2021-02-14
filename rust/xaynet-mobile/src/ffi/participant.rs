@@ -477,3 +477,170 @@ pub unsafe extern "C" fn xaynet_ffi_participant_local_model_config(
 
     Box::into_raw(Box::new(participant.local_model_config().into()))
 }
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_global_model() {
+        (assert_c! {
+            #include <assert.h>
+
+            #include "xaynet_ffi.h"
+
+            void with_keys(Settings *settings) {
+                const KeyPair *keys = xaynet_ffi_generate_key_pair();
+                int err = xaynet_ffi_settings_set_keys(settings, keys);
+                assert(!err);
+                xaynet_ffi_forget_key_pair(keys);
+              }
+
+            void with_url(Settings *settings) {
+                int err = xaynet_ffi_settings_set_url(settings, "http://localhost:1234");
+                assert(!err);
+            }
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+                with_keys(settings);
+                with_url(settings);
+                xaynet_ffi_settings_set_url(settings, "http://localhost:8081");
+
+                Participant *participant = xaynet_ffi_participant_new(settings);
+                assert(participant != NULL); // "failed to create participant"
+                LocalModelConfig *local_model_config = xaynet_ffi_participant_local_model_config(participant);
+                float* buffer = (float *)malloc(sizeof(float) * local_model_config->len);
+
+                int err = xaynet_ffi_participant_global_model(NULL, buffer, local_model_config->data_type, local_model_config->len);
+                assert(err == ERR_NULLPTR); // "expected participant is null error"
+
+                err = xaynet_ffi_participant_global_model(participant, NULL, local_model_config->data_type, local_model_config->len);
+                assert(err == ERR_NULLPTR); // "expected buffer is null error"
+
+                err = xaynet_ffi_participant_global_model(participant, buffer, local_model_config->data_type, local_model_config->len);
+                assert(err == ERR_GLOBALMODEL_IO); // "expected io error (cannot connect to coordinator)"
+
+                free(buffer);
+                xaynet_ffi_local_model_config_destroy(local_model_config);
+                xaynet_ffi_participant_destroy(participant);
+                xaynet_ffi_settings_destroy(settings);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_participant_save_and_restore() {
+        (assert_c! {
+            #include <assert.h>
+            #include <stdio.h>
+
+            #include "xaynet_ffi.h"
+
+            void with_keys(Settings *settings) {
+                const KeyPair *keys = xaynet_ffi_generate_key_pair();
+                int err = xaynet_ffi_settings_set_keys(settings, keys);
+                assert(!err);
+                xaynet_ffi_forget_key_pair(keys);
+              }
+
+            void with_url(Settings *settings) {
+                int err = xaynet_ffi_settings_set_url(settings, "http://localhost:1234");
+                assert(!err);
+            }
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+                with_keys(settings);
+                with_url(settings);
+
+                Participant *participant = xaynet_ffi_participant_new(settings);
+                assert(participant != NULL); // "failed to create participant"
+                xaynet_ffi_settings_destroy(settings);
+
+                // save the participant
+                const ByteBuffer *save_buf = xaynet_ffi_participant_save(participant);
+                assert(save_buf != NULL); // "failed to save participant"
+
+                // write the serialized participant to a file
+                char *path = "./test_participant_save_and_restore.txt";
+                FILE *f = fopen(path, "w");
+                fwrite(save_buf->data, 1, save_buf->len, f);
+                fclose(f);
+                int err = xaynet_ffi_byte_buffer_destroy(save_buf);
+                assert(!err);
+
+                // read the serialized participant from the file
+                f = fopen(path, "r");
+                fseek(f, 0L, SEEK_END);
+                int fsize = ftell(f);
+                fseek(f, 0L, SEEK_SET);
+                ByteBuffer restore_buf = {
+                    .len = fsize,
+                    .data = (uint8_t *)malloc(fsize),
+                };
+                int n_read = fread(restore_buf.data, 1, fsize, f);
+                assert(n_read == fsize); // "failed to read serialized participant"
+                fclose(f);
+
+                // restore the participant
+                Participant *restored =
+                    xaynet_ffi_participant_restore("http://localhost:8081", &restore_buf);
+                assert(restored != NULL); // "failed to restore participant"
+
+                // free memory
+                free(restore_buf.data);
+                xaynet_ffi_participant_destroy(restored);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_participant_tick() {
+        (assert_c! {
+            #include <assert.h>
+
+            #include "xaynet_ffi.h"
+
+            void with_keys(Settings *settings) {
+                const KeyPair *keys = xaynet_ffi_generate_key_pair();
+                int err = xaynet_ffi_settings_set_keys(settings, keys);
+                assert(!err);
+                xaynet_ffi_forget_key_pair(keys);
+              }
+
+            void with_url(Settings *settings) {
+                int err = xaynet_ffi_settings_set_url(settings, "http://localhost:1234");
+                assert(!err);
+            }
+
+            int main() {
+                Settings *settings = xaynet_ffi_settings_new();
+                with_keys(settings);
+                with_url(settings);
+
+                Participant *participant = xaynet_ffi_participant_new(settings);
+                assert(participant != NULL); // "failed to create participant"
+
+                int status = xaynet_ffi_participant_tick(participant);
+                assert((status & PARTICIPANT_TASK_NONE)); // "missing no task flag"
+                assert(!(status & PARTICIPANT_TASK_SUM)); // "unexpected sum task flag"
+                assert(!(status & PARTICIPANT_TASK_UPDATE)); // "unexpected update task flag"
+                assert(!(status & PARTICIPANT_SHOULD_SET_MODEL)); // "unexpected set model flag"
+                assert(!(status & PARTICIPANT_MADE_PROGRESS)); // "unexpected made progress flag"
+                // free memory
+                xaynet_ffi_settings_destroy(settings);
+                xaynet_ffi_participant_destroy(participant);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}

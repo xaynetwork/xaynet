@@ -25,6 +25,9 @@ xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 xaynet-sdk = { path = "../xaynet-sdk", default-features = false, version = "0.1.0", features = ["reqwest-client"]}
 zeroize = "1.2.0"
 
+[dev-dependencies]
+inline-c = "0.1.5"
+
 [lib]
 name = "xaynet_mobile"
 crate-type = ["staticlib", "cdylib", "rlib"]
