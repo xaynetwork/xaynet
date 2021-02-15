@@ -3,4 +3,4 @@ kind: Deployment
 metadata:
   name: coordinator-deployment
 spec:
-  revisionHistoryLimit: 5
+  revisionHistoryLimit: 0
