@@ -10,10 +10,10 @@ setup(
     python_requires=">=3.7.1, <=3.8",
     packages=find_packages(),
     install_requires=[
-        "pandas==1.2.1",
+        "pandas==1.2.2",
         "scikit-learn==0.24.1",
         "tensorflow==2.4.1",
-        "numpy~=1.19.2",
+        "numpy>=1.19.2,<1.21.0",
         "tabulate~=0.8.7",
     ],
     entry_points={
