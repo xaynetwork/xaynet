@@ -81,9 +81,6 @@ jobs:
       - name: Check deployment status
         run: kubectl rollout -n xaynet status deployment/coordinator-deployment
 
-      - name: Clean-up stale ReplicaSets
-        run: kubectl delete -n xaynet replicasets $(kubectl get -n xaynet replicasets | awk 'NR!=1 && ($2==0) {print $1}')
-
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
         if: ${{ success() }}
