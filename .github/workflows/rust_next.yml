@@ -167,11 +167,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-
 
-      # - name: cargo clippy
-      #   working-directory: rust
-      #   run: |
-      #     cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
-      #     cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
+      - name: cargo clippy
+        working-directory: rust
+        run: |
+          cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
+          cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
 
   docs:
     name: cargo-doc
@@ -220,5 +220,20 @@ jobs:
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
-      - name: Notify
-        run: echo "Sending notification"
+      - name: Notify on Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: workflow,job,repo
+          custom_payload: |
+            {
+              username: 'GitHub Actions',
+              icon_emoji: ':octocat:',
+              attachments: [{
+                color: 'danger',
+                text: `${process.env.AS_WORKFLOW}\nRepository: ${process.env.AS_REPO}\nRef: master :warning:`,
+              }]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
