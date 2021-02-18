@@ -224,14 +224,14 @@ jobs:
         uses: 8398a7/action-slack@v3
         with:
           status: custom
-          fields: workflow,job,repo
+          fields: workflow,repo
           custom_payload: |
             {
               username: 'GitHub Actions',
               icon_emoji: ':octocat:',
               attachments: [{
                 color: 'danger',
-                text: `${process.env.AS_WORKFLOW}\nRepository: ${process.env.AS_REPO}\nRef: master :warning:`,
+                text: `${process.env.AS_WORKFLOW} :warning:\nRepository: ${process.env.AS_REPO}`,
               }]
             }
         env:
