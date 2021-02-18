@@ -211,3 +211,13 @@ jobs:
       - name: Check the building of docs
         working-directory: ./rust
         run: cargo doc --all-features --document-private-items --no-deps --color always
+
+  notify:
+    name: notify
+    if: failure()
+    needs: [format, check, clippy, docs]
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify
+        run: echo "Sending notification"
