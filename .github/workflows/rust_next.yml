@@ -179,8 +179,8 @@ jobs:
     timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         rust_version: [stable, beta]
     steps:
       - name: Checkout repository
