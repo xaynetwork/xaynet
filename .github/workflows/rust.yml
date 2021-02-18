@@ -31,6 +31,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       # We want to create a new cache after a week. Otherwise, the cache will
       # take up too much space by caching old dependencies
@@ -112,6 +113,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Use cached cargo registry
         uses: actions/cache@v2.1.4
@@ -151,6 +153,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
           components: clippy
 
       - name: Use cached cargo registry
@@ -189,6 +192,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Use cached cargo registry
         uses: actions/cache@v2.1.4
@@ -237,6 +241,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Use cached cargo registry
         uses: actions/cache@v2.1.4
@@ -278,6 +283,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Use cached cargo registry
         uses: actions/cache@v2.1.4
@@ -312,6 +318,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
           profile: minimal
 
       - name: Use cached cargo registry
@@ -365,6 +372,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Cache cargo registry
         uses: actions/cache@v2.1.4
@@ -427,6 +435,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Cache cargo readme
         uses: actions/cache@v2.1.4
