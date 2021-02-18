@@ -167,11 +167,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-
 
-      # - name: cargo clippy
-      #   working-directory: rust
-      #   run: |
-      #     cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
-      #     cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
+      - name: cargo clippy
+        working-directory: rust
+        run: |
+          cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
+          cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
 
   docs:
     name: cargo-doc
@@ -180,6 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        fail-fast: false
         rust_version: [stable, beta]
     steps:
       - name: Checkout repository
@@ -208,12 +209,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-doc-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-doc-${{ needs.registry-cache.outputs.cache-date }}-
 
-      # - name: Check the building of docs
-      #   working-directory: ./rust
-      #   run: cargo doc --all-features --document-private-items --no-deps --color always
-
-      - name: fail
-        run: exit 2
+      - name: Check the building of docs
+        working-directory: ./rust
+        run: cargo doc --all-features --document-private-items --no-deps --color always
 
   notify:
     name: notify
