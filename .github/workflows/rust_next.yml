@@ -167,11 +167,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-
 
-      - name: cargo clippy
-        working-directory: rust
-        run: |
-          cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
-          cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
+      # - name: cargo clippy
+      #   working-directory: rust
+      #   run: |
+      #     cargo clippy --all-targets -- --deny warnings --deny clippy::cargo
+      #     cargo clippy --all-targets --all-features -- --deny warnings --deny clippy::cargo
 
   docs:
     name: cargo-doc
