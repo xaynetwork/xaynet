@@ -1,7 +1,8 @@
 name: Rust-CI Next
 
 on:
-  push:
+  schedule:
+    - cron: '00 04 10,20 * *'
 
 jobs:
   registry-cache:
