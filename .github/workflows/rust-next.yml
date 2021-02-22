@@ -196,13 +196,6 @@ jobs:
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
-      - name: Cache build artifacts
-        uses: actions/cache@v2.1.4
-        with:
-          path: ${{ github.workspace }}/rust/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-doc-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-doc-${{ needs.registry-cache.outputs.cache-date }}-
-
       - name: Check the building of docs
         working-directory: ./rust
         run: cargo doc --all-features --document-private-items --no-deps --color always
