@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::convert::{TryFrom, TryInto};
 
@@ -36,7 +36,7 @@ impl TryFrom<ScreenRouteAdapter> for ScreenRoute {
 impl TryInto<ScreenRouteAdapter> for ScreenRoute {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<ScreenRouteAdapter, Error> {
+    fn try_into(self) -> Result<ScreenRouteAdapter, Self::Error> {
         Ok(ScreenRouteAdapter::new(
             self.name,
             self.created_at.to_rfc3339(),

@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::convert::{TryFrom, TryInto};
 
@@ -28,7 +28,7 @@ impl TryFrom<ControllerDataAdapter> for ControllerData {
 impl TryInto<ControllerDataAdapter> for ControllerData {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<ControllerDataAdapter, Error> {
+    fn try_into(self) -> Result<ControllerDataAdapter, Self::Error> {
         Ok(ControllerDataAdapter::new(self.time_data_sent.to_rfc3339()))
     }
 }

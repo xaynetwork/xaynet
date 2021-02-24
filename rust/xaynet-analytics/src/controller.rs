@@ -115,10 +115,11 @@ impl AnalyticsController {
     }
 
     fn get_last_time_data_sent(db: &IsarDb) -> Result<Option<DateTime<Utc>>, Error> {
-        match ControllerData::get_all(db, &CollectionNames::CONTROLLER_DATA)?.last() {
-            Some(data) => Ok(Some(data.time_data_sent)),
-            None => Ok(None),
-        }
+        Ok(
+            ControllerData::get_all(db, &CollectionNames::CONTROLLER_DATA)?
+                .last()
+                .map(|data| data.time_data_sent),
+        )
     }
 
     // TODO: review and debug this method during https://xainag.atlassian.net/browse/XN-1560

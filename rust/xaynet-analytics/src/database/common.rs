@@ -26,13 +26,11 @@ pub trait IsarAdapter<'object>: Sized {
         name: &str,
         isar_properties: &[(String, Property)],
     ) -> Result<Property, Error> {
-        let property = isar_properties
+        isar_properties
             .iter()
-            .find(|(isar_property_name, _)| isar_property_name == name);
-        match property {
-            Some((_, property)) => Ok(*property),
-            None => Err(anyhow!("failed to retrieve property {:?}", name)),
-        }
+            .find(|(isar_property_name, _)| isar_property_name == name)
+            .map(|(_, property)| *property)
+            .ok_or_else(|| anyhow!("failed to retrieve property {:?}", name))
     }
 }
 
@@ -159,12 +157,17 @@ impl TryFrom<&str> for RelationalField {
     fn try_from(data: &str) -> Result<Self, Error> {
         fn stringify(input: Option<&&str>) -> Result<String, Error> {
             Ok(input
-                .ok_or_else(|| anyhow!("could not unwrap input"))?
+                .ok_or_else(|| anyhow!("could not unwrap input {:?}", input))?
                 .to_string())
         }
 
         let data_split: Vec<&str> = data.split('=').collect();
-        assert_eq!(data_split.len(), 2);
+        if !data_split.len() == 2 {
+            return Err(anyhow!(
+                "data {:?} is not a str made of two elements separated by '='",
+                data
+            ));
+        }
 
         Ok(Self {
             value: stringify(data_split.first())?,

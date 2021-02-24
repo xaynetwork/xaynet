@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use std::convert::{From, Into, TryFrom, TryInto};
 
@@ -60,7 +60,9 @@ impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
     fn try_from(adapter: AnalyticsEventRelationalAdapter) -> Result<Self, Self::Error> {
         let event = AnalyticsEvent::new(
             adapter.name,
-            TryInto::<AnalyticsEventType>::try_into(adapter.event_type)
+            adapter
+                .event_type
+                .try_into()
                 .map_err(|_| anyhow!("unable to convert event_type into enum"))?,
             DateTime::parse_from_rfc3339(&adapter.timestamp)?.with_timezone(&Utc),
             adapter.screen_route,
@@ -72,19 +74,12 @@ impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
 impl TryInto<AnalyticsEventAdapter> for AnalyticsEvent {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<AnalyticsEventAdapter, Error> {
-        let screen_route_field: Option<RelationalField> =
-            if let Some(screen_route) = self.screen_route {
-                Some(RelationalField::from(screen_route))
-            } else {
-                None
-            };
-
+    fn try_into(self) -> Result<AnalyticsEventAdapter, Self::Error> {
         Ok(AnalyticsEventAdapter::new(
             self.name,
             self.event_type as i32,
             self.timestamp.to_rfc3339(),
-            screen_route_field,
+            self.screen_route.map(RelationalField::from),
         ))
     }
 }
