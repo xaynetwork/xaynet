@@ -4,7 +4,7 @@ use isar_core::object::{
     isar_object::{IsarObject, Property},
     object_builder::ObjectBuilder,
 };
-use std::vec::IntoIter;
+use std::{convert::TryFrom, vec::IntoIter};
 
 use crate::database::{
     common::{FieldProperty, IsarAdapter, RelationalField, Repo, SchemaGenerator},
@@ -50,11 +50,10 @@ impl<'event> IsarAdapter<'event> for AnalyticsEventAdapter {
     }
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        let screen_route_field: Option<&str> = if let Some(field) = &self.screen_route_field {
-            Some(&field.value)
-        } else {
-            None
-        };
+        let screen_route_field = self
+            .screen_route_field
+            .as_ref()
+            .map(|field| field.value.as_str());
 
         object_builder.write_int(self.event_type);
         object_builder.write_string(Some(&self.name));
@@ -80,12 +79,10 @@ impl<'event> IsarAdapter<'event> for AnalyticsEventAdapter {
             .read_string(timestamp_property?)
             .ok_or_else(|| anyhow!("unable to read timestamp"))?
             .to_string();
-        let screen_route_field_data = isar_object.read_string(screen_route_name_property?);
-        let screen_route_field = if let Some(screen_route) = screen_route_field_data {
-            Some(RelationalField::from(screen_route))
-        } else {
-            None
-        };
+        let screen_route_field = isar_object
+            .read_string(screen_route_name_property?)
+            .map(RelationalField::try_from)
+            .transpose()?;
 
         Ok(AnalyticsEventAdapter::new(
             name_field,
@@ -107,20 +104,21 @@ pub struct AnalyticsEventRelationalAdapter {
 
 impl AnalyticsEventRelationalAdapter {
     pub fn new(adapter: AnalyticsEventAdapter, db: &IsarDb) -> Result<Self, Error> {
-        let screen_route = if let Some(screen_route_field) = adapter.screen_route_field {
-            Some(ScreenRoute::get(
-                &screen_route_field.value,
-                db,
-                &screen_route_field.collection_name,
-            )?)
-        } else {
-            None
-        };
+        let screen_route = adapter
+            .screen_route_field
+            .map(|screen_route_field| {
+                ScreenRoute::get(
+                    &screen_route_field.value,
+                    db,
+                    &screen_route_field.collection_name,
+                )
+            })
+            .transpose()?;
 
         Ok(Self {
-            name: adapter.name.to_string(),
+            name: adapter.name,
             event_type: adapter.event_type,
-            timestamp: adapter.timestamp.to_string(),
+            timestamp: adapter.timestamp,
             screen_route,
         })
     }

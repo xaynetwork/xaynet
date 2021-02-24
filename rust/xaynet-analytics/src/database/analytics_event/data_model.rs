@@ -62,16 +62,14 @@ impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
             adapter.name,
             TryInto::<AnalyticsEventType>::try_into(adapter.event_type)
                 .map_err(|_| anyhow!("unable to convert event_type into enum"))?,
-            DateTime::parse_from_rfc3339(&adapter.timestamp)
-                .unwrap()
-                .with_timezone(&Utc),
+            DateTime::parse_from_rfc3339(&adapter.timestamp)?.with_timezone(&Utc),
             adapter.screen_route,
         );
         Ok(event)
     }
 }
 
-impl<'event> TryInto<AnalyticsEventAdapter> for AnalyticsEvent {
+impl TryInto<AnalyticsEventAdapter> for AnalyticsEvent {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<AnalyticsEventAdapter, Error> {

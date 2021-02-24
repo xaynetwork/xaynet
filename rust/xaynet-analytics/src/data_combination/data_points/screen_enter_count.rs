@@ -13,7 +13,7 @@ impl CalcScreenEnterCount {
     }
 }
 
-impl<'a> CalculateDataPoints for CalcScreenEnterCount {
+impl CalculateDataPoints for CalcScreenEnterCount {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }

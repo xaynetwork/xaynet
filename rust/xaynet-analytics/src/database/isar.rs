@@ -57,7 +57,7 @@ impl IsarDb {
     ) -> Result<Option<IsarObject<'txn>>, Error> {
         self.get_collection(collection_name)?
             .get(transaction, object_id)
-            .map_err(|_| anyhow!("unable to get {:?} object", object_id))
+            .map_err(|err| anyhow!("unable to get {:?} object ({:?})", object_id, err))
     }
 
     pub fn put(

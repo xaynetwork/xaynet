@@ -8,7 +8,7 @@ use isar_core::{
     },
     schema::collection_schema::CollectionSchema,
 };
-use std::{convert::From, vec::IntoIter};
+use std::{convert::TryFrom, vec::IntoIter};
 
 use crate::database::isar::IsarDb;
 
@@ -153,18 +153,27 @@ pub struct RelationalField {
 
 // NOTE: when split_once gets to stable, it would be a much better solution for this
 // https://doc.rust-lang.org/std/string/struct.String.html#method.split_once
-impl From<&str> for RelationalField {
-    fn from(data: &str) -> Self {
+impl TryFrom<&str> for RelationalField {
+    type Error = anyhow::Error;
+
+    fn try_from(data: &str) -> Result<Self, Error> {
+        fn stringify(input: Option<&&str>) -> Result<String, Error> {
+            Ok(input
+                .ok_or_else(|| anyhow!("could not unwrap input"))?
+                .to_string())
+        }
+
         let data_split: Vec<&str> = data.split('=').collect();
         assert_eq!(data_split.len(), 2);
-        Self {
-            value: data_split.first().unwrap().to_string(),
-            collection_name: data_split.last().unwrap().to_string(),
-        }
+
+        Ok(Self {
+            value: stringify(data_split.first())?,
+            collection_name: stringify(data_split.last())?,
+        })
     }
 }
 
-impl<'field> Into<String> for RelationalField {
+impl Into<String> for RelationalField {
     fn into(self) -> String {
         format!("{:?}={:?}", self.value, self.collection_name)
     }

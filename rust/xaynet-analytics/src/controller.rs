@@ -28,7 +28,7 @@ struct AnalyticsController {
 
 // TODO: remove allow dead code when AnalyticsController is integrated with FFI layer: https://xainag.atlassian.net/browse/XN-1415
 #[allow(dead_code)]
-impl<'ctrl> AnalyticsController {
+impl AnalyticsController {
     const SEND_DATA_FREQUENCY_HOURS: i64 = 24;
 
     pub fn init(
@@ -66,12 +66,9 @@ impl<'ctrl> AnalyticsController {
         event_type: AnalyticsEventType,
         option_screen_route_name: Option<&str>,
     ) -> Result<(), Error> {
-        let option_screen_route = if let Some(screen_route_name) = option_screen_route_name {
-            let screen_route = self.add_screen_route_if_new(screen_route_name)?;
-            Some(screen_route)
-        } else {
-            None
-        };
+        let option_screen_route = option_screen_route_name
+            .map(|screen_route_name| self.add_screen_route_if_new(screen_route_name))
+            .transpose()?;
 
         let event = AnalyticsEvent::new(
             name.to_string(),
@@ -105,10 +102,10 @@ impl<'ctrl> AnalyticsController {
         let existing_screen_routes =
             ScreenRoute::get_all(&self.db, &CollectionNames::SCREEN_ROUTES)?;
         if let Some(existing_screen_route) = existing_screen_routes
-            .iter()
+            .into_iter()
             .find(|existing_route| existing_route.name == screen_route_name)
         {
-            Ok(existing_screen_route.clone())
+            Ok(existing_screen_route)
         } else {
             let screen_route = ScreenRoute::new(screen_route_name, Utc::now());
             let screen_route_clone = screen_route.clone();

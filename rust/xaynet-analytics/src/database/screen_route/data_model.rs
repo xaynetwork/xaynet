@@ -22,15 +22,13 @@ impl ScreenRoute {
     }
 }
 
-impl<'screen> TryFrom<ScreenRouteAdapter> for ScreenRoute {
+impl TryFrom<ScreenRouteAdapter> for ScreenRoute {
     type Error = anyhow::Error;
 
     fn try_from(adapter: ScreenRouteAdapter) -> Result<Self, Self::Error> {
         Ok(ScreenRoute::new(
             adapter.name,
-            DateTime::parse_from_rfc3339(&adapter.created_at)
-                .unwrap()
-                .with_timezone(&Utc),
+            DateTime::parse_from_rfc3339(&adapter.created_at)?.with_timezone(&Utc),
         ))
     }
 }

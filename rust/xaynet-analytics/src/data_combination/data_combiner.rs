@@ -197,11 +197,11 @@ impl<'screen> DataCombiner {
         all_events
             .iter()
             .filter(|event| {
-                if let Some(screen_route) = &event.screen_route {
-                    screen_route == route
-                } else {
-                    false
-                }
+                event
+                    .screen_route
+                    .as_ref()
+                    .map(|screen_route| screen_route == route)
+                    .unwrap_or(false)
             })
             .cloned()
             .collect()

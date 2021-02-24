@@ -15,19 +15,17 @@ impl ControllerData {
     }
 }
 
-impl<'ctrl> TryFrom<ControllerDataAdapter> for ControllerData {
+impl TryFrom<ControllerDataAdapter> for ControllerData {
     type Error = anyhow::Error;
 
     fn try_from(adapter: ControllerDataAdapter) -> Result<Self, Self::Error> {
         Ok(ControllerData::new(
-            DateTime::parse_from_rfc3339(&adapter.time_data_sent)
-                .unwrap()
-                .with_timezone(&Utc),
+            DateTime::parse_from_rfc3339(&adapter.time_data_sent)?.with_timezone(&Utc),
         ))
     }
 }
 
-impl<'ctrl> TryInto<ControllerDataAdapter> for ControllerData {
+impl TryInto<ControllerDataAdapter> for ControllerData {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<ControllerDataAdapter, Error> {
