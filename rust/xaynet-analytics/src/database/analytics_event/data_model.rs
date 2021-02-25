@@ -17,7 +17,7 @@ pub enum AnalyticsEventType {
 }
 
 impl TryFrom<i32> for AnalyticsEventType {
-    type Error = ();
+    type Error = anyhow::Error;
 
     fn try_from(v: i32) -> Result<Self, Self::Error> {
         match v {
@@ -25,7 +25,7 @@ impl TryFrom<i32> for AnalyticsEventType {
             x if x == AnalyticsEventType::AppError as i32 => Ok(AnalyticsEventType::AppError),
             x if x == AnalyticsEventType::ScreenEnter as i32 => Ok(AnalyticsEventType::ScreenEnter),
             x if x == AnalyticsEventType::UserAction as i32 => Ok(AnalyticsEventType::UserAction),
-            _ => Err(()),
+            _ => Err(anyhow!("i32 value {:?} is not mapped to an AnalyticsEventType variant", v)),
         }
     }
 }
