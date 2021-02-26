@@ -25,7 +25,7 @@ impl IsarDb {
             IsarDb::MAX_SIZE,
             IsarDb::get_schema(collection_schemas)?,
         )
-        .map_err(|_| anyhow!("failed to create IsarInstance"))
+        .map_err(|error| anyhow!("failed to create IsarInstance: {:?}", error))
         .map(|instance| IsarDb { instance })
     }
 
@@ -37,15 +37,16 @@ impl IsarDb {
             .new_query_builder()
             .build()
             .find_all_vec(&mut self.begin_txn(false)?)
-            .map_err(|_| {
+            .map_err(|error| {
                 anyhow!(
-                    "failed to find all objects from collection {}",
-                    collection_name
+                    "failed to find all objects from collection {}: {:?}",
+                    collection_name,
+                    error,
                 )
             })
     }
 
-    pub fn get_transaction(&self) -> Result<IsarTxn, Error> {
+    pub fn get_read_transaction(&self) -> Result<IsarTxn, Error> {
         self.begin_txn(false)
     }
 
@@ -57,29 +58,22 @@ impl IsarDb {
     ) -> Result<Option<IsarObject<'txn>>, Error> {
         self.get_collection(collection_name)?
             .get(transaction, object_id)
-            .map_err(|err| anyhow!("unable to get {:?} object ({:?})", object_id, err))
+            .map_err(|error| anyhow!("unable to get {:?} object ({:?})", object_id, error))
     }
 
-    pub fn put(
-        &self,
-        collection_name: &str,
-        object_id: Option<ObjectId>,
-        object: &[u8],
-    ) -> Result<(), Error> {
+    pub fn put(&self, collection_name: &str, object: &[u8]) -> Result<(), Error> {
+        let mut transaction = self.begin_txn(true)?;
         self.get_collection(collection_name)?
-            .put(
-                &mut self.begin_txn(true)?,
-                object_id,
-                IsarObject::new(object),
-            )
-            .map_err(|_| {
+            .put(&mut transaction, IsarObject::new(object))
+            .and_then(|_| transaction.commit())
+            .map_err(|error| {
                 anyhow!(
-                    "failed to add object {:?} to collection: {}",
+                    "failed to add object {:?} to collection: {} | {:?}",
                     object,
-                    collection_name
+                    collection_name,
+                    error,
                 )
             })
-            .map(|_| ())
     }
 
     pub fn get_object_builder(&self, collection_name: &str) -> Result<ObjectBuilder, Error> {
@@ -93,7 +87,9 @@ impl IsarDb {
         collection_name: &str,
         oid: &str,
     ) -> Result<ObjectId, Error> {
-        Ok(self.get_collection(collection_name)?.new_string_oid(oid))
+        self.get_collection(collection_name)?
+            .new_string_oid(oid)
+            .map_err(|error| anyhow!("could not get the object id from {:?}: {:?}", oid, error))
     }
 
     pub fn get_collection_properties(
@@ -111,14 +107,12 @@ impl IsarDb {
     }
 
     fn get_schema(collection_schemas: Vec<CollectionSchema>) -> Result<Schema, Error> {
-        collection_schemas
-            .iter()
-            .try_fold(Schema::new(), |mut schema, collection_schema| {
-                schema
-                    .add_collection(collection_schema.to_owned())
-                    .map_err(|_| anyhow!("failed to add collection schema to instance schema"))?;
-                Ok(schema)
-            })
+        Schema::new(collection_schemas).map_err(|error| {
+            anyhow!(
+                "failed to add collection schemas to instance schema: {:?}",
+                error
+            )
+        })
     }
 
     fn get_collection(&self, collection_name: &str) -> Result<&IsarCollection, Error> {
@@ -127,9 +121,9 @@ impl IsarDb {
             .ok_or_else(|| anyhow!("wrong collection name: {}", collection_name))
     }
 
-    fn begin_txn(&self, write: bool) -> Result<IsarTxn, Error> {
+    fn begin_txn(&self, is_write: bool) -> Result<IsarTxn, Error> {
         self.instance
-            .begin_txn(write)
-            .map_err(|_| anyhow!("failed to begin transaction"))
+            .begin_txn(is_write)
+            .map_err(|error| anyhow!("failed to begin transaction: {:?}", error))
     }
 }
