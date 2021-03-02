@@ -25,7 +25,10 @@ impl TryFrom<i32> for AnalyticsEventType {
             x if x == AnalyticsEventType::AppError as i32 => Ok(AnalyticsEventType::AppError),
             x if x == AnalyticsEventType::ScreenEnter as i32 => Ok(AnalyticsEventType::ScreenEnter),
             x if x == AnalyticsEventType::UserAction as i32 => Ok(AnalyticsEventType::UserAction),
-            _ => Err(anyhow!("i32 value {:?} is not mapped to an AnalyticsEventType variant", v)),
+            _ => Err(anyhow!(
+                "i32 value {:?} is not mapped to an AnalyticsEventType variant",
+                v
+            )),
         }
     }
 }
