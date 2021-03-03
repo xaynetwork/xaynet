@@ -43,15 +43,13 @@ impl AnalyticsController {
         ];
         let db = IsarDb::new(&path, schemas)?;
         let last_time_data_sent = Self::get_last_time_data_sent(&db)?;
-        let combiner = DataCombiner;
-        let sender = Sender;
         Ok(AnalyticsController {
             db,
             is_charging,
             is_connected_to_wifi,
             last_time_data_sent,
-            combiner,
-            sender,
+            combiner: DataCombiner,
+            sender: Sender,
             send_data_frequency: Duration::hours(Self::SEND_DATA_FREQUENCY_HOURS),
         })
     }
@@ -76,7 +74,7 @@ impl AnalyticsController {
             Utc::now(),
             option_screen_route,
         );
-        event.add(&self.db, &CollectionNames::ANALYTICS_EVENTS)?;
+        event.save(&self.db, &CollectionNames::ANALYTICS_EVENTS)?;
         Ok(())
     }
 
@@ -108,9 +106,10 @@ impl AnalyticsController {
             Ok(existing_screen_route)
         } else {
             let screen_route = ScreenRoute::new(screen_route_name, Utc::now());
-            let screen_route_clone = screen_route.clone();
-            screen_route.add(&self.db, &CollectionNames::SCREEN_ROUTES)?;
-            Ok(screen_route_clone)
+            screen_route
+                .clone()
+                .save(&self.db, &CollectionNames::SCREEN_ROUTES)?;
+            Ok(screen_route)
         }
     }
 
@@ -143,7 +142,8 @@ impl AnalyticsController {
         self.sender
             .send(self.combiner.init_data_points(&events, &screen_routes)?)
             .and_then(|_| {
-                ControllerData::new(time_data_sent).add(&self.db, &CollectionNames::CONTROLLER_DATA)
+                ControllerData::new(time_data_sent)
+                    .save(&self.db, &CollectionNames::CONTROLLER_DATA)
             })
             .map(|_| self.last_time_data_sent = Some(time_data_sent))
     }

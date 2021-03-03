@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use std::convert::{TryFrom, TryInto};
+use std::convert::{Into, TryFrom};
 
 use crate::database::{
     analytics_event::{
@@ -11,9 +11,9 @@ use crate::database::{
 };
 
 impl<'db> Repo<'db, AnalyticsEvent> for AnalyticsEvent {
-    fn add(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error> {
+    fn save(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error> {
         let mut object_builder = db.get_object_builder(collection_name)?;
-        let event_adapter: AnalyticsEventAdapter = self.try_into()?;
+        let event_adapter: AnalyticsEventAdapter = self.into();
         event_adapter.write_with_object_builder(&mut object_builder);
         db.put(collection_name, None, object_builder.finish().as_bytes())
     }
@@ -31,7 +31,7 @@ impl<'db> Repo<'db, AnalyticsEvent> for AnalyticsEvent {
 
     fn get(oid: &str, db: &'db IsarDb, collection_name: &str) -> Result<Self, Error> {
         let isar_properties = db.get_collection_properties(collection_name)?;
-        let object_id = db.get_object_id_from_str(oid, collection_name)?;
+        let object_id = db.get_object_id_from_str(collection_name, oid)?;
         let mut transaction = db.get_transaction()?;
         let isar_object =
             db.get_isar_object_by_id(&object_id, collection_name, &mut transaction)?;

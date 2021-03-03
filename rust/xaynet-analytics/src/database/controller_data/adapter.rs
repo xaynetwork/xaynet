@@ -37,10 +37,10 @@ impl<'ctrl> IsarAdapter<'ctrl> for ControllerDataAdapter {
         isar_properties: &'ctrl [(String, Property)],
     ) -> Result<ControllerDataAdapter, Error> {
         let time_data_sent_property =
-            Self::find_property_by_name("time_data_sent", isar_properties);
+            Self::find_property_by_name("time_data_sent", isar_properties)?;
 
         let time_data_sent_data = isar_object
-            .read_string(time_data_sent_property?)
+            .read_string(time_data_sent_property)
             .ok_or_else(|| anyhow!("unable to read time_data_sent"))?;
 
         Ok(ControllerDataAdapter::new(time_data_sent_data.to_string()))

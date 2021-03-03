@@ -196,13 +196,7 @@ impl<'screen> DataCombiner {
     ) -> Vec<AnalyticsEvent> {
         all_events
             .iter()
-            .filter(|event| {
-                event
-                    .screen_route
-                    .as_ref()
-                    .map(|screen_route| screen_route == route)
-                    .unwrap_or(false)
-            })
+            .filter(|event| event.screen_route.as_ref() == Some(route))
             .cloned()
             .collect()
     }

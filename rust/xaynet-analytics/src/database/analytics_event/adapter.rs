@@ -65,22 +65,22 @@ impl<'event> IsarAdapter<'event> for AnalyticsEventAdapter {
         isar_object: &'event IsarObject,
         isar_properties: &'event [(String, Property)],
     ) -> Result<AnalyticsEventAdapter, Error> {
-        let name_property = Self::find_property_by_name("name", isar_properties);
-        let eventy_type_property = Self::find_property_by_name("event_type", isar_properties);
-        let timestamp_property = Self::find_property_by_name("timestamp", isar_properties);
-        let screen_route_name_property =
-            Self::find_property_by_name("screen_route_field", isar_properties);
+        let name_property = Self::find_property_by_name("name", isar_properties)?;
+        let event_type_property = Self::find_property_by_name("event_type", isar_properties)?;
+        let timestamp_property = Self::find_property_by_name("timestamp", isar_properties)?;
+        let screen_route_field_property =
+            Self::find_property_by_name("screen_route_field", isar_properties)?;
 
         let name_field = isar_object
-            .read_string(name_property?)
+            .read_string(name_property)
             .ok_or_else(|| anyhow!("unable to read name"))?;
-        let event_type_field = isar_object.read_int(eventy_type_property?);
+        let event_type_field = isar_object.read_int(event_type_property);
         let timestamp_field = isar_object
-            .read_string(timestamp_property?)
+            .read_string(timestamp_property)
             .ok_or_else(|| anyhow!("unable to read timestamp"))?
             .to_string();
         let screen_route_field = isar_object
-            .read_string(screen_route_name_property?)
+            .read_string(screen_route_field_property)
             .map(RelationalField::try_from)
             .transpose()?;
 

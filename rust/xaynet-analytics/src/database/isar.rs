@@ -39,7 +39,7 @@ impl IsarDb {
             .find_all_vec(&mut self.begin_txn(false)?)
             .map_err(|_| {
                 anyhow!(
-                    "failed to find all bytes from collection {}",
+                    "failed to find all objects from collection {}",
                     collection_name
                 )
             })

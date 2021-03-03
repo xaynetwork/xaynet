@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use std::convert::{TryFrom, TryInto};
+use std::convert::{Into, TryFrom};
 
 use crate::database::{
     common::{CollectionNames, RelationalField},
@@ -33,14 +33,9 @@ impl TryFrom<ScreenRouteAdapter> for ScreenRoute {
     }
 }
 
-impl TryInto<ScreenRouteAdapter> for ScreenRoute {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<ScreenRouteAdapter, Self::Error> {
-        Ok(ScreenRouteAdapter::new(
-            self.name,
-            self.created_at.to_rfc3339(),
-        ))
+impl Into<ScreenRouteAdapter> for ScreenRoute {
+    fn into(self) -> ScreenRouteAdapter {
+        ScreenRouteAdapter::new(self.name, self.created_at.to_rfc3339())
     }
 }
 

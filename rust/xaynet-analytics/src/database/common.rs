@@ -38,7 +38,7 @@ pub trait Repo<'db, M>
 where
     M: Sized,
 {
-    fn add(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error>;
+    fn save(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error>;
 
     fn get_all(db: &'db IsarDb, collection_name: &str) -> Result<Vec<M>, Error>;
 
@@ -67,7 +67,7 @@ impl<'object> IsarAdapter<'object> for MockObject {
 }
 
 impl<'db> Repo<'db, MockObject> for MockObject {
-    fn add(self, _db: &'db IsarDb, _collection_name: &str) -> Result<(), Error> {
+    fn save(self, _db: &'db IsarDb, _collection_name: &str) -> Result<(), Error> {
         unimplemented!()
     }
 
@@ -155,14 +155,8 @@ impl TryFrom<&str> for RelationalField {
     type Error = anyhow::Error;
 
     fn try_from(data: &str) -> Result<Self, Error> {
-        fn stringify(input: Option<&&str>) -> Result<String, Error> {
-            Ok(input
-                .ok_or_else(|| anyhow!("could not unwrap input {:?}", input))?
-                .to_string())
-        }
-
         let data_split: Vec<&str> = data.split('=').collect();
-        if !data_split.len() == 2 {
+        if data_split.len() != 2 {
             return Err(anyhow!(
                 "data {:?} is not a str made of two elements separated by '='",
                 data
@@ -170,8 +164,8 @@ impl TryFrom<&str> for RelationalField {
         }
 
         Ok(Self {
-            value: stringify(data_split.first())?,
-            collection_name: stringify(data_split.last())?,
+            value: data_split[0].to_string(),
+            collection_name: data_split[1].to_string(),
         })
     }
 }

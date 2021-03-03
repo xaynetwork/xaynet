@@ -74,15 +74,13 @@ impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
     }
 }
 
-impl TryInto<AnalyticsEventAdapter> for AnalyticsEvent {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<AnalyticsEventAdapter, Self::Error> {
-        Ok(AnalyticsEventAdapter::new(
+impl Into<AnalyticsEventAdapter> for AnalyticsEvent {
+    fn into(self) -> AnalyticsEventAdapter {
+        AnalyticsEventAdapter::new(
             self.name,
             self.event_type as i32,
             self.timestamp.to_rfc3339(),
             self.screen_route.map(RelationalField::from),
-        ))
+        )
     }
 }

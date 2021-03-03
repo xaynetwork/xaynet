@@ -38,14 +38,14 @@ impl<'screen> IsarAdapter<'screen> for ScreenRouteAdapter {
         isar_object: &'screen IsarObject,
         isar_properties: &'screen [(String, Property)],
     ) -> Result<ScreenRouteAdapter, Error> {
-        let name_property = Self::find_property_by_name("name", isar_properties);
-        let created_at_property = Self::find_property_by_name("created_at", isar_properties);
+        let name_property = Self::find_property_by_name("name", isar_properties)?;
+        let created_at_property = Self::find_property_by_name("created_at", isar_properties)?;
 
         let name_data = isar_object
-            .read_string(name_property?)
+            .read_string(name_property)
             .ok_or_else(|| anyhow!("unable to read name"))?;
         let created_at_data = isar_object
-            .read_string(created_at_property?)
+            .read_string(created_at_property)
             .ok_or_else(|| anyhow!("unable to read created_at"))?;
 
         Ok(ScreenRouteAdapter::new(
