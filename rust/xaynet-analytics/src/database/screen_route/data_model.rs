@@ -1,8 +1,11 @@
+use anyhow::Result;
 use chrono::{DateTime, Utc};
-use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
-use std::vec::IntoIter;
+use std::convert::{Into, TryFrom};
 
-use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
+use crate::database::{
+    common::{CollectionNames, RelationalField},
+    screen_route::adapter::ScreenRouteAdapter,
+};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ScreenRoute {
@@ -19,24 +22,28 @@ impl ScreenRoute {
     }
 }
 
-impl IsarAdapter for ScreenRoute {
-    fn into_field_properties() -> IntoIter<FieldProperty> {
-        vec![
-            FieldProperty::new("created_at".to_string(), DataType::String),
-            FieldProperty::new("name".to_string(), DataType::String),
-        ]
-        .into_iter()
-    }
+impl TryFrom<ScreenRouteAdapter> for ScreenRoute {
+    type Error = anyhow::Error;
 
-    fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_string(Some(&self.created_at.to_rfc3339()));
-        object_builder.write_string(Some(&self.name));
-    }
-
-    fn read(_bytes: &[u8]) -> ScreenRoute {
-        // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        todo!()
+    fn try_from(adapter: ScreenRouteAdapter) -> Result<Self, Self::Error> {
+        Ok(ScreenRoute::new(
+            adapter.name,
+            DateTime::parse_from_rfc3339(&adapter.created_at)?.with_timezone(&Utc),
+        ))
     }
 }
 
-impl SchemaGenerator<ScreenRoute> for ScreenRoute {}
+impl Into<ScreenRouteAdapter> for ScreenRoute {
+    fn into(self) -> ScreenRouteAdapter {
+        ScreenRouteAdapter::new(self.name, self.created_at.to_rfc3339())
+    }
+}
+
+impl From<ScreenRoute> for RelationalField {
+    fn from(screen_route: ScreenRoute) -> Self {
+        Self {
+            value: screen_route.name,
+            collection_name: CollectionNames::SCREEN_ROUTES.to_string(),
+        }
+    }
+}

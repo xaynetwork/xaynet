@@ -1,8 +1,8 @@
+use anyhow::Result;
 use chrono::{DateTime, Utc};
-use isar_core::object::{data_type::DataType, object_builder::ObjectBuilder};
-use std::vec::IntoIter;
+use std::convert::{Into, TryFrom};
 
-use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
+use crate::database::controller_data::adapter::ControllerDataAdapter;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ControllerData {
@@ -15,23 +15,18 @@ impl ControllerData {
     }
 }
 
-impl IsarAdapter for ControllerData {
-    fn into_field_properties() -> IntoIter<FieldProperty> {
-        vec![FieldProperty::new(
-            "time_data_sent".to_string(),
-            DataType::String,
-        )]
-        .into_iter()
-    }
+impl TryFrom<ControllerDataAdapter> for ControllerData {
+    type Error = anyhow::Error;
 
-    fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_string(Some(&self.time_data_sent.to_rfc3339()));
-    }
-
-    fn read(_bytes: &[u8]) -> ControllerData {
-        // TODO: implement when Isar will support it: https://xainag.atlassian.net/browse/XN-1604
-        todo!()
+    fn try_from(adapter: ControllerDataAdapter) -> Result<Self, Self::Error> {
+        Ok(ControllerData::new(
+            DateTime::parse_from_rfc3339(&adapter.time_data_sent)?.with_timezone(&Utc),
+        ))
     }
 }
 
-impl SchemaGenerator<ControllerData> for ControllerData {}
+impl Into<ControllerDataAdapter> for ControllerData {
+    fn into(self) -> ControllerDataAdapter {
+        ControllerDataAdapter::new(self.time_data_sent.to_rfc3339())
+    }
+}

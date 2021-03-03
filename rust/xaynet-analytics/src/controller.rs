@@ -4,23 +4,23 @@ use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use crate::{
     data_combination::data_combiner::DataCombiner,
     database::{
-        analytics_event::{data_model::AnalyticsEvent, repo::AnalyticsEventRepo},
-        common::{IsarAdapter, Repo, SchemaGenerator},
-        controller_data::{data_model::ControllerData, repo::ControllerDataRepo},
+        analytics_event::{
+            adapter::AnalyticsEventAdapter,
+            data_model::{AnalyticsEvent, AnalyticsEventType},
+        },
+        common::{CollectionNames, Repo, SchemaGenerator},
+        controller_data::{adapter::ControllerDataAdapter, data_model::ControllerData},
         isar::IsarDb,
-        screen_route::{data_model::ScreenRoute, repo::ScreenRouteRepo},
+        screen_route::{adapter::ScreenRouteAdapter, data_model::ScreenRoute},
     },
     sender::Sender,
 };
 
-struct AnalyticsController<'ctrl> {
+struct AnalyticsController {
     db: IsarDb,
     is_charging: bool,
     is_connected_to_wifi: bool,
     last_time_data_sent: Option<DateTime<Utc>>,
-    analytics_event_repo: AnalyticsEventRepo<'ctrl>,
-    controller_data_repo: ControllerDataRepo<'ctrl>,
-    screen_route_repo: ScreenRouteRepo<'ctrl>,
     combiner: DataCombiner,
     sender: Sender,
     send_data_frequency: Duration,
@@ -28,10 +28,7 @@ struct AnalyticsController<'ctrl> {
 
 // TODO: remove allow dead code when AnalyticsController is integrated with FFI layer: https://xainag.atlassian.net/browse/XN-1415
 #[allow(dead_code)]
-impl<'ctrl> AnalyticsController<'ctrl> {
-    const ANALYTICS_EVENT_COLLECTION_NAME: &'ctrl str = "analytics_events";
-    const CONTROLLER_DATA_COLLECTION_NAME: &'ctrl str = "controller_data";
-    const SCREEN_ROUTE_COLLECTION_NAME: &'ctrl str = "screen_routes";
+impl AnalyticsController {
     const SEND_DATA_FREQUENCY_HOURS: i64 = 24;
 
     pub fn init(
@@ -39,28 +36,20 @@ impl<'ctrl> AnalyticsController<'ctrl> {
         is_charging: bool,
         is_connected_to_wifi: bool,
     ) -> Result<Self, Error> {
-        let analytics_event_repo = AnalyticsEventRepo::new(Self::ANALYTICS_EVENT_COLLECTION_NAME);
-        let controller_data_repo = ControllerDataRepo::new(Self::CONTROLLER_DATA_COLLECTION_NAME);
-        let screen_route_repo = ScreenRouteRepo::new(Self::SCREEN_ROUTE_COLLECTION_NAME);
         let schemas = vec![
-            AnalyticsEvent::get_schema(Self::ANALYTICS_EVENT_COLLECTION_NAME)?,
-            ControllerData::get_schema(Self::CONTROLLER_DATA_COLLECTION_NAME)?,
-            ScreenRoute::get_schema(Self::SCREEN_ROUTE_COLLECTION_NAME)?,
+            AnalyticsEventAdapter::get_schema(&CollectionNames::ANALYTICS_EVENTS)?,
+            ControllerDataAdapter::get_schema(&CollectionNames::CONTROLLER_DATA)?,
+            ScreenRouteAdapter::get_schema(&CollectionNames::SCREEN_ROUTES)?,
         ];
         let db = IsarDb::new(&path, schemas)?;
-        let last_time_data_sent = Self::get_last_time_data_sent(&controller_data_repo, &db)?;
-        let combiner = DataCombiner;
-        let sender = Sender;
+        let last_time_data_sent = Self::get_last_time_data_sent(&db)?;
         Ok(AnalyticsController {
             db,
             is_charging,
             is_connected_to_wifi,
             last_time_data_sent,
-            analytics_event_repo,
-            controller_data_repo,
-            screen_route_repo,
-            combiner,
-            sender,
+            combiner: DataCombiner,
+            sender: Sender,
             send_data_frequency: Duration::hours(Self::SEND_DATA_FREQUENCY_HOURS),
         })
     }
@@ -69,10 +58,24 @@ impl<'ctrl> AnalyticsController<'ctrl> {
         self.db.dispose()
     }
 
-    pub fn save_analytics_event(&self, event_bytes: &[u8]) -> Result<(), Error> {
-        let event = AnalyticsEvent::read(event_bytes);
-        self.check_for_new_screen_route(&event)?;
-        self.analytics_event_repo.add(&event, &self.db)
+    pub fn save_analytics_event(
+        &self,
+        name: &str,
+        event_type: AnalyticsEventType,
+        option_screen_route_name: Option<&str>,
+    ) -> Result<(), Error> {
+        let option_screen_route = option_screen_route_name
+            .map(|screen_route_name| self.add_screen_route_if_new(screen_route_name))
+            .transpose()?;
+
+        let event = AnalyticsEvent::new(
+            name.to_string(),
+            event_type,
+            Utc::now(),
+            option_screen_route,
+        );
+        event.save(&self.db, &CollectionNames::ANALYTICS_EVENTS)?;
+        Ok(())
     }
 
     pub fn change_connectivity_status(&mut self) {
@@ -84,48 +87,38 @@ impl<'ctrl> AnalyticsController<'ctrl> {
     }
 
     pub fn maybe_send_data(&mut self) -> Result<(), Error> {
-        if self.should_send_data() {
+        let can_send_data = self.is_charging && self.is_connected_to_wifi;
+        let should_send_data = can_send_data && !self.did_send_already_in_this_period();
+        if should_send_data {
             self.send_data()
         } else {
             Ok(())
         }
     }
 
-    fn check_for_new_screen_route(&self, event: &AnalyticsEvent) -> Result<(), Error> {
-        match event.screen_route {
-            Some(screen_route) => self.add_screen_route_if_new(screen_route),
-            None => Ok(()),
-        }
-    }
-
-    fn add_screen_route_if_new(&self, screen_route: &ScreenRoute) -> Result<(), Error> {
-        if !self
-            .screen_route_repo
-            .get_all(&self.db)?
-            .contains(screen_route)
+    fn add_screen_route_if_new(&self, screen_route_name: &str) -> Result<ScreenRoute, Error> {
+        let existing_screen_routes =
+            ScreenRoute::get_all(&self.db, &CollectionNames::SCREEN_ROUTES)?;
+        if let Some(existing_screen_route) = existing_screen_routes
+            .into_iter()
+            .find(|existing_route| existing_route.name == screen_route_name)
         {
-            self.screen_route_repo.add(screen_route, &self.db)
+            Ok(existing_screen_route)
         } else {
-            Ok(())
+            let screen_route = ScreenRoute::new(screen_route_name, Utc::now());
+            screen_route
+                .clone()
+                .save(&self.db, &CollectionNames::SCREEN_ROUTES)?;
+            Ok(screen_route)
         }
     }
 
-    fn get_last_time_data_sent(
-        repo: &ControllerDataRepo,
-        db: &IsarDb,
-    ) -> Result<Option<DateTime<Utc>>, Error> {
-        match repo.get_all(db)?.last() {
-            Some(data) => Ok(Some(data.time_data_sent)),
-            None => Ok(None),
-        }
-    }
-
-    fn should_send_data(&self) -> bool {
-        self.can_send_data() && !self.did_send_already_in_this_period()
-    }
-
-    fn can_send_data(&self) -> bool {
-        self.is_charging && self.is_connected_to_wifi
+    fn get_last_time_data_sent(db: &IsarDb) -> Result<Option<DateTime<Utc>>, Error> {
+        Ok(
+            ControllerData::get_all(db, &CollectionNames::CONTROLLER_DATA)?
+                .last()
+                .map(|data| data.time_data_sent),
+        )
     }
 
     // TODO: review and debug this method during https://xainag.atlassian.net/browse/XN-1560
@@ -143,14 +136,14 @@ impl<'ctrl> AnalyticsController<'ctrl> {
     }
 
     fn send_data(&mut self) -> Result<(), Error> {
-        let events = self.analytics_event_repo.get_all(&self.db)?;
-        let screen_routes = self.screen_route_repo.get_all(&self.db)?;
+        let events = AnalyticsEvent::get_all(&self.db, &CollectionNames::ANALYTICS_EVENTS)?;
+        let screen_routes = ScreenRoute::get_all(&self.db, &CollectionNames::SCREEN_ROUTES)?;
         let time_data_sent = Utc::now();
         self.sender
             .send(self.combiner.init_data_points(&events, &screen_routes)?)
             .and_then(|_| {
-                self.controller_data_repo
-                    .add(&ControllerData::new(time_data_sent), &self.db)
+                ControllerData::new(time_data_sent)
+                    .save(&self.db, &CollectionNames::CONTROLLER_DATA)
             })
             .map(|_| self.last_time_data_sent = Some(time_data_sent))
     }

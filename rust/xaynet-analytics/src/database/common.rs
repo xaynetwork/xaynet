@@ -1,35 +1,55 @@
 use anyhow::{anyhow, Error, Result};
 use isar_core::{
     index::StringIndexType,
-    object::{data_type::DataType, object_builder::ObjectBuilder},
+    object::{
+        data_type::DataType,
+        isar_object::{IsarObject, Property},
+        object_builder::ObjectBuilder,
+    },
     schema::collection_schema::CollectionSchema,
 };
-use std::vec::IntoIter;
+use std::{convert::TryFrom, vec::IntoIter};
 
 use crate::database::isar::IsarDb;
 
-pub trait IsarAdapter: Sized {
+pub trait IsarAdapter<'object>: Sized {
     fn into_field_properties() -> IntoIter<FieldProperty>;
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder);
 
-    fn read(bytes: &[u8]) -> Self;
+    fn read(
+        isar_object: &'object IsarObject,
+        isar_properties: &'object [(String, Property)],
+    ) -> Result<Self, Error>;
+
+    fn find_property_by_name(
+        name: &str,
+        isar_properties: &[(String, Property)],
+    ) -> Result<Property, Error> {
+        isar_properties
+            .iter()
+            .find(|(isar_property_name, _)| isar_property_name == name)
+            .map(|(_, property)| *property)
+            .ok_or_else(|| anyhow!("failed to retrieve property {:?}", name))
+    }
 }
 
-pub trait Repo<T>
+pub trait Repo<'db, M>
 where
-    T: IsarAdapter,
+    M: Sized,
 {
-    fn add(&self, object: &T, db: &IsarDb) -> Result<(), Error>;
+    fn save(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error>;
 
-    fn get_all(&self, db: &IsarDb) -> Result<Vec<T>, Error>;
+    fn get_all(db: &'db IsarDb, collection_name: &str) -> Result<Vec<M>, Error>;
+
+    fn get(object_id: &str, db: &'db IsarDb, collection_name: &str) -> Result<M, Error>;
 }
 
 pub struct MockRepo {}
 
 pub struct MockObject {}
 
-impl IsarAdapter for MockObject {
+impl<'object> IsarAdapter<'object> for MockObject {
     fn into_field_properties() -> IntoIter<FieldProperty> {
         unimplemented!()
     }
@@ -38,17 +58,28 @@ impl IsarAdapter for MockObject {
         unimplemented!()
     }
 
-    fn read(_bytes: &[u8]) -> MockObject {
+    fn read(
+        _isar_object: &'object IsarObject,
+        _isar_properties: &'object [(String, Property)],
+    ) -> Result<MockObject, Error> {
         unimplemented!()
     }
 }
 
-impl Repo<MockObject> for MockRepo {
-    fn add(&self, _object: &MockObject, _db: &IsarDb) -> Result<(), Error> {
+impl<'db> Repo<'db, MockObject> for MockObject {
+    fn save(self, _db: &'db IsarDb, _collection_name: &str) -> Result<(), Error> {
         unimplemented!()
     }
 
-    fn get_all(&self, _db: &IsarDb) -> Result<Vec<MockObject>, Error> {
+    fn get_all(_db: &'db IsarDb, _collection_name: &str) -> Result<Vec<MockObject>, Error> {
+        unimplemented!()
+    }
+
+    fn get(
+        _object_id: &str,
+        _db: &'db IsarDb,
+        _collection_name: &str,
+    ) -> Result<MockObject, Error> {
         unimplemented!()
     }
 }
@@ -73,12 +104,12 @@ impl FieldProperty {
     }
 }
 
-pub trait SchemaGenerator<T>
+pub trait SchemaGenerator<'object, A>
 where
-    T: IsarAdapter,
+    A: IsarAdapter<'object>,
 {
     fn get_schema(name: &str) -> Result<CollectionSchema, Error> {
-        T::into_field_properties().try_fold(
+        A::into_field_properties().try_fold(
             CollectionSchema::new(name, &format!("{}_oid", name), DataType::String),
             |mut schema, prop| {
                 schema
@@ -110,4 +141,45 @@ where
             },
         )
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct RelationalField {
+    pub value: String,
+    pub collection_name: String,
+}
+
+// NOTE: when split_once gets to stable, it would be a much better solution for this
+// https://doc.rust-lang.org/std/string/struct.String.html#method.split_once
+impl TryFrom<&str> for RelationalField {
+    type Error = anyhow::Error;
+
+    fn try_from(data: &str) -> Result<Self, Error> {
+        let data_split: Vec<&str> = data.split('=').collect();
+        if data_split.len() != 2 {
+            return Err(anyhow!(
+                "data {:?} is not a str made of two elements separated by '='",
+                data
+            ));
+        }
+
+        Ok(Self {
+            value: data_split[0].to_string(),
+            collection_name: data_split[1].to_string(),
+        })
+    }
+}
+
+impl Into<String> for RelationalField {
+    fn into(self) -> String {
+        format!("{:?}={:?}", self.value, self.collection_name)
+    }
+}
+
+pub struct CollectionNames;
+
+impl CollectionNames {
+    pub const ANALYTICS_EVENTS: &'static str = "analytics_events";
+    pub const CONTROLLER_DATA: &'static str = "controller_data";
+    pub const SCREEN_ROUTES: &'static str = "screen_routes";
 }

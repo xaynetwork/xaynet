@@ -10,10 +10,10 @@ use crate::{
     database::analytics_event::data_model::AnalyticsEvent,
 };
 
-impl<'a> CalcWasActiveEachPastPeriod<'a> {
+impl CalcWasActiveEachPastPeriod {
     pub fn new(
         metadata: DataPointMetadata,
-        events: Vec<AnalyticsEvent<'a>>,
+        events: Vec<AnalyticsEvent>,
         period_thresholds: Vec<DateTime<Utc>>,
     ) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl<'a> CalcWasActiveEachPastPeriod<'a> {
     }
 }
 
-impl<'a> CalculateDataPoints for CalcWasActiveEachPastPeriod<'a> {
+impl CalculateDataPoints for CalcWasActiveEachPastPeriod {
     fn metadata(&self) -> DataPointMetadata {
         self.metadata
     }
@@ -154,7 +154,7 @@ mod tests {
             ),
             AnalyticsEvent::new(
                 "test2",
-                AnalyticsEventType::Error,
+                AnalyticsEventType::AppError,
                 end_period - Duration::hours(15),
                 None,
             ),
@@ -184,7 +184,7 @@ mod tests {
             ),
             AnalyticsEvent::new(
                 "test2",
-                AnalyticsEventType::Error,
+                AnalyticsEventType::AppError,
                 end_period - Duration::hours(36),
                 None,
             ),
