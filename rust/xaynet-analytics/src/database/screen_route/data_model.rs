@@ -71,10 +71,7 @@ mod tests {
             .with_timezone(&Utc);
         let screen_route = ScreenRoute::new("route", timestamp_parsed);
         let adapter = ScreenRouteAdapter::new("route", timestamp_str);
-        assert_eq!(
-            Into::<ScreenRouteAdapter>::into(screen_route),
-            adapter
-        );
+        assert_eq!(Into::<ScreenRouteAdapter>::into(screen_route), adapter);
     }
 
     #[test]
