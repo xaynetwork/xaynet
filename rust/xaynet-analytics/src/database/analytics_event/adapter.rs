@@ -42,24 +42,22 @@ impl<'event> IsarAdapter<'event> for AnalyticsEventAdapter {
     }
 
     fn into_field_properties() -> IntoIter<FieldProperty> {
-        // NOTE: properties need to be ordered by type. Properties with the same type need to be ordered alphabetically
-        // https://github.com/isar/isar-core/blob/1ea9f27edfd6e3708daa47ac6a17995b628f31a6/src/schema/collection_schema.rs
         vec![
-            FieldProperty::new("event_type", DataType::Int, false),
-            FieldProperty::new("name", DataType::String, false),
             FieldProperty::new("oid", DataType::String, true),
-            FieldProperty::new("screen_route_field", DataType::String, false),
+            FieldProperty::new("name", DataType::String, false),
+            FieldProperty::new("event_type", DataType::Int, false),
             FieldProperty::new("timestamp", DataType::String, false),
+            FieldProperty::new("screen_route_field", DataType::String, false),
         ]
         .into_iter()
     }
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_int(self.event_type);
-        object_builder.write_string(Some(&self.name));
         object_builder.write_string(Some(&self.get_oid()));
-        object_builder.write_string(self.screen_route_field.as_deref());
+        object_builder.write_string(Some(&self.name));
+        object_builder.write_int(self.event_type);
         object_builder.write_string(Some(&self.timestamp));
+        object_builder.write_string(self.screen_route_field.as_deref());
     }
 
     fn read(

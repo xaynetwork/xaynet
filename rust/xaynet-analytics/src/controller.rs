@@ -146,21 +146,39 @@ impl AnalyticsController {
         )
     }
 
+    /// This method implements a sliding 'time window' of self.send_data_frequency duration, to check whether we have
+    /// already sent data in the current window, or not.
+    ///
+    /// An alternative implementation could be based on simply checking whether:
+    /// last_time_data_sent > Utc::now() - self.send_data_frequency
+    ///
+    /// In the current implementation, it might be easier to then group the aggregated data on the coordinator side,
+    /// to then be displayed in the UI, especially if self.send_data_frequency = Duration::hours(24).
+    ///
+    /// The more dynamic approach however implies that if, for example, self.send_data_frequency = Duration::hours(6),
+    /// and the last time we sent the data was at 5AM, we would be able to send again at 7AM, while with the simpler solution
+    /// we wouldn't be able to send again until 11AM.
+    ///
+    /// The correct approach to be chosen should very much depend on the amount of data available for aggregation,
+    /// and it's possible that Self::MAX_SEND_DATA_FREQUENCY_HOURS should be increased to more than 24.
+    /// Only once it's more clear how the aggregation will work on the coordinator side, there will be more information
+    /// to decide the approach here.
     fn did_send_already_in_this_period(&self) -> bool {
-        self.last_time_data_sent.is_some() && {
-            let last_time_data_sent = self.last_time_data_sent.unwrap();
-            let now = Utc::now();
-            let start_of_day: DateTime<Utc> = DateTime::from_utc(
-                NaiveDate::from_ymd(now.year(), now.month(), now.day()).and_hms(0, 0, 0),
-                Utc,
-            );
-            let mut end_of_current_period = start_of_day + self.send_data_frequency;
-            while now > end_of_current_period {
-                end_of_current_period = end_of_current_period + self.send_data_frequency;
-            }
-            let start_of_current_period = end_of_current_period - self.send_data_frequency;
-            last_time_data_sent > start_of_current_period
-        }
+        self.last_time_data_sent
+            .map(|last_time_data_sent| {
+                let now = Utc::now();
+                let start_of_day: DateTime<Utc> = DateTime::from_utc(
+                    NaiveDate::from_ymd(now.year(), now.month(), now.day()).and_hms(0, 0, 0),
+                    Utc,
+                );
+                let mut end_of_current_period = start_of_day + self.send_data_frequency;
+                while now > end_of_current_period {
+                    end_of_current_period = end_of_current_period + self.send_data_frequency;
+                }
+                let start_of_current_period = end_of_current_period - self.send_data_frequency;
+                last_time_data_sent > start_of_current_period
+            })
+            .unwrap_or(false)
     }
 
     fn send_data(&mut self) -> Result<(), Error> {
@@ -184,8 +202,8 @@ mod tests {
     use std::{env, fs, path::PathBuf};
 
     fn get_path(test_name: &str) -> PathBuf {
-        let current_dir = env::current_dir().unwrap();
-        current_dir.join(test_name)
+        let temp_dir = env::temp_dir();
+        temp_dir.join(test_name)
     }
 
     fn get_controller(
@@ -315,6 +333,14 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_send_data_frequency_when_0() {
+        assert_eq!(
+            AnalyticsController::validate_send_data_frequency(Some(0)).unwrap(),
+            Duration::hours(0)
+        )
+    }
+
+    #[test]
     fn test_add_screen_route_if_new_with_new_route() {
         let test_name = "test_add_screen_route_if_new_with_new_route";
         let controller = get_controller(test_name, None);
@@ -345,6 +371,8 @@ mod tests {
             .add_screen_route_if_new(screen_route_name, first_timestamp)
             .is_ok());
 
+        // if we call controller.add_screen_route_if_new() with the same screen_route_name, but a new_timestamp,
+        // we expect to get the first_screen_route back, with the first_timestamp
         let new_timestamp = DateTime::parse_from_rfc3339("2021-02-02T02:02:00+00:00")
             .unwrap()
             .with_timezone(&Utc);
@@ -363,12 +391,9 @@ mod tests {
         let test_name = "test_get_last_time_data_sent_is_none";
         let controller = get_controller(test_name, None);
 
-        assert!(AnalyticsController::get_last_time_data_sent(controller.db()).is_ok());
-        assert!(
-            AnalyticsController::get_last_time_data_sent(controller.db())
-                .unwrap()
-                .is_none()
-        );
+        let last_time_data_sent = AnalyticsController::get_last_time_data_sent(controller.db());
+        assert!(last_time_data_sent.is_ok());
+        assert!(last_time_data_sent.unwrap().is_none());
 
         let timestamp = DateTime::parse_from_rfc3339("2021-03-03T03:03:00+00:00")
             .unwrap()
@@ -378,11 +403,9 @@ mod tests {
             .save(controller.db(), CollectionNames::CONTROLLER_DATA)
             .is_ok());
 
-        assert!(AnalyticsController::get_last_time_data_sent(controller.db()).is_ok());
-        assert_eq!(
-            AnalyticsController::get_last_time_data_sent(controller.db()).unwrap(),
-            Some(timestamp)
-        );
+        let last_time_data_sent = AnalyticsController::get_last_time_data_sent(controller.db());
+        assert!(last_time_data_sent.is_ok());
+        assert_eq!(last_time_data_sent.unwrap(), Some(timestamp));
 
         cleanup(controller, test_name);
     }
@@ -407,8 +430,6 @@ mod tests {
         assert!(controller_data
             .save(initial_controller.db(), CollectionNames::CONTROLLER_DATA)
             .is_ok());
-
-        eprintln!("controller_data timestamp: {:?}", timestamp);
 
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());

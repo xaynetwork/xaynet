@@ -30,17 +30,17 @@ impl<'screen> IsarAdapter<'screen> for ScreenRouteAdapter {
 
     fn into_field_properties() -> IntoIter<FieldProperty> {
         vec![
-            FieldProperty::new("created_at", DataType::String, false),
-            FieldProperty::new("name", DataType::String, false),
             FieldProperty::new("oid", DataType::String, true),
+            FieldProperty::new("name", DataType::String, false),
+            FieldProperty::new("created_at", DataType::String, false),
         ]
         .into_iter()
     }
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_string(Some(&self.created_at));
-        object_builder.write_string(Some(&self.name));
         object_builder.write_string(Some(&self.get_oid()));
+        object_builder.write_string(Some(&self.name));
+        object_builder.write_string(Some(&self.created_at));
     }
 
     fn read(
