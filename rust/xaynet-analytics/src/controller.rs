@@ -355,6 +355,12 @@ mod tests {
                 .unwrap(),
             screen_route
         );
+
+        let retrieved_screen_routes =
+            ScreenRoute::get_all(controller.db(), CollectionNames::SCREEN_ROUTES).unwrap();
+        assert_eq!(retrieved_screen_routes.len(), 1);
+        assert_eq!(retrieved_screen_routes.first(), Some(&screen_route));
+
         cleanup(controller, test_name);
     }
 
@@ -382,6 +388,11 @@ mod tests {
                 .unwrap(),
             first_screen_route
         );
+
+        let retrieved_screen_routes =
+            ScreenRoute::get_all(controller.db(), CollectionNames::SCREEN_ROUTES).unwrap();
+        assert_eq!(retrieved_screen_routes.len(), 1);
+        assert_eq!(retrieved_screen_routes.first(), Some(&first_screen_route));
 
         cleanup(controller, test_name);
     }

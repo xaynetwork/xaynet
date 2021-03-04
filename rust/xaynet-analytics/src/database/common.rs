@@ -83,11 +83,8 @@ where
             (Vec::new(), Vec::new()),
             |(mut properties, mut indexes), prop| {
                 let property_schema = PropertySchema::new(&prop.name, prop.data_type, prop.is_oid);
-                let is_index_case_sensitive = if prop.data_type == DataType::String {
-                    Some(true)
-                } else {
-                    None
-                };
+                let is_index_case_sensitive =
+                    Some(true).filter(|_| prop.data_type == DataType::String);
                 let index_property_schema = vec![IndexPropertySchema::new(
                     &prop.name,
                     prop.index_type,

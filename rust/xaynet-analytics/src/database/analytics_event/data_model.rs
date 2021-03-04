@@ -171,11 +171,14 @@ mod tests {
             .with_timezone(&Utc);
         let analytics_event =
             AnalyticsEvent::new("test", AnalyticsEventType::AppError, timestamp_parsed, None);
-        let analytics_event_adapter =
+
+        let actual_analytics_event_adapter: AnalyticsEventAdapter =
+            analytics_event.try_into().unwrap();
+        let expected_analytics_event_adapter =
             AnalyticsEventAdapter::new("test", 1, timestamp_str.to_string(), None);
         assert_eq!(
-            TryInto::<AnalyticsEventAdapter>::try_into(analytics_event).unwrap(),
-            analytics_event_adapter
+            actual_analytics_event_adapter,
+            expected_analytics_event_adapter
         );
     }
 
@@ -196,11 +199,14 @@ mod tests {
             timestamp_parsed,
             Some(screen_route),
         );
-        let analytics_event_adapter =
+
+        let actual_analytics_event_adapter: AnalyticsEventAdapter =
+            analytics_event.try_into().unwrap();
+        let expected_analytics_event_adapter =
             AnalyticsEventAdapter::new("test", 3, timestamp_str.to_string(), Some(relationa_field));
         assert_eq!(
-            TryInto::<AnalyticsEventAdapter>::try_into(analytics_event).unwrap(),
-            analytics_event_adapter
+            actual_analytics_event_adapter,
+            expected_analytics_event_adapter
         );
     }
 }
