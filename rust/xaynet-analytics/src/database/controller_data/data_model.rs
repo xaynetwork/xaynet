@@ -1,9 +1,13 @@
+//! In this file `ControllerData` is declared, together with tome conversion methods to/from adapters.
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::convert::{Into, TryFrom};
 
 use crate::database::controller_data::adapter::ControllerDataAdapter;
 
+/// Holds some metadata useful for the `AnalyticsController`. For now it only contains `time_data_sent`,
+/// which is the time when analytics data was last sent to the coordinator for aggregation.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ControllerData {
     pub time_data_sent: DateTime<Utc>,

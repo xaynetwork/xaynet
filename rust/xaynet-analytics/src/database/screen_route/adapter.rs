@@ -1,3 +1,6 @@
+//! This file contains struct and impl for `ScreenRouteAdapter` the implementation of `IsarAdapter`
+//! for `ScreenRouteAdapter`.
+
 use anyhow::{anyhow, Error, Result};
 use isar_core::object::{
     data_type::DataType,
@@ -8,6 +11,7 @@ use std::vec::IntoIter;
 
 use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
 
+/// Allows to convert an `IsarObject` from the db to a `ScreenRoute`.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ScreenRouteAdapter {
     pub name: String,

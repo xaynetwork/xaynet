@@ -1,3 +1,5 @@
+//! Implementations of the methods needed to save and get `ControllerData` to/from Isar.
+
 use anyhow::{anyhow, Error, Result};
 use std::convert::{Into, TryFrom};
 

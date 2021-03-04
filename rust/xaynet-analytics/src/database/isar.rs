@@ -1,3 +1,5 @@
+//! `IsarDb` is an internal abstraction on top of Isar that wraps `IsarInstance`, the main singleton from Isar.
+
 use anyhow::{anyhow, Error, Result};
 use isar_core::{
     collection::IsarCollection,
@@ -12,6 +14,8 @@ use isar_core::{
 };
 use std::sync::Arc;
 
+/// `IsarDb` is the internal singleton wrapping the `IsarInstance`, which is the singleton coming from Isar.
+/// `IsarDb` exposes public methods for the `AnalyticsController` to save/get models via the `Repo` impls and the adapters.
 pub struct IsarDb {
     instance: Arc<IsarInstance>,
 }
@@ -19,6 +23,10 @@ pub struct IsarDb {
 impl IsarDb {
     const MAX_SIZE: usize = 10000000;
 
+    /// `IsarInstance` is the singleton from Isar that coordinates the whole database.
+    ///
+    /// `Vec<CollectionSchema>` is required by Isar to register each data model `IsarCollection`.
+    /// A `IsarCollection` organises data for a single data model (eg: `AnalyticsEvents`).
     pub fn new(path: &str, collection_schemas: Vec<CollectionSchema>) -> Result<IsarDb, Error> {
         IsarInstance::open(
             path,
@@ -46,6 +54,9 @@ impl IsarDb {
             })
     }
 
+    /// Transactions are needed to write and read from Isar.
+    /// This method is public because it's called inside `Repo::read()`, before passing it to `get_isar_object_by_id()`,
+    /// so that the transaction is in scope when called, and the lifetimes are valid.
     pub fn get_read_transaction(&self) -> Result<IsarTxn, Error> {
         self.begin_txn(false)
     }
@@ -82,6 +93,7 @@ impl IsarDb {
             .new_object_builder(None))
     }
 
+    /// When `Ok`, this method returns a valid `ObjectId` that can be used to retrieve a single object from a collection.
     pub fn get_object_id_from_str(
         &self,
         collection_name: &str,
@@ -92,6 +104,8 @@ impl IsarDb {
             .map_err(|error| anyhow!("could not get the object id from {:?}: {:?}", oid, error))
     }
 
+    /// Returns the properties from a collection that were registered via the `CollectionSchema`, and are needed to
+    /// read/write objects to/from the collection.
     pub fn get_collection_properties(
         &self,
         collection_name: &str,
@@ -106,6 +120,8 @@ impl IsarDb {
         }
     }
 
+    /// The `Schema` is needed to open the `IsarInstance` and is automatically produced by Isar
+    /// based on the `Vec<CollectionSchema>` provided when calling `IsarDb::new()`.
     fn get_schema(collection_schemas: Vec<CollectionSchema>) -> Result<Schema, Error> {
         Schema::new(collection_schemas).map_err(|error| {
             anyhow!(
@@ -121,6 +137,7 @@ impl IsarDb {
             .ok_or_else(|| anyhow!("wrong collection name: {}", collection_name))
     }
 
+    /// Transactions are needed to read/write objects from Isar. Write transactions should stay private.
     fn begin_txn(&self, is_write: bool) -> Result<IsarTxn, Error> {
         self.instance
             .begin_txn(is_write)

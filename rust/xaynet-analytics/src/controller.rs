@@ -1,3 +1,5 @@
+//! In this file the `AnalyticsController` is defined.
+
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 
@@ -16,6 +18,21 @@ use crate::{
     sender::Sender,
 };
 
+/// The `AnalyticsController` is the core component of the library. It exposes public functions to the FFI wrapper, and it’s responsible for:
+/// - Instantiating the other necessary components (`DataCombiner`, `Sender` and `IsarDb`)
+/// - Receiving incoming data recorded by the mobile framework (via FFI of course) and saving them to the db via `IsarDb`.
+/// - Checking if the library needs to send data to the XayNet coordinator via `Sender`.
+/// - Holding some simple state (`self.is_charging`, `self.is_connected_to_wifi`) so that it knows whether it’s appropriate to send data to XayNet.
+///
+/// ## Arguments
+///
+/// * `db` - Singleton instance of `IsarDb`, used to operate with the database.
+/// * `is_charging` - Boolean flag representing whether the phone is currently charging or not.
+/// * `is_cpnnected_to_wifi` - Boolean flag representing whether the phone is currently connected to the wifi or not.
+/// * `last_time_data_sent` - Timestamp representing when analytics data was last sent to the coordinator. If `None`, data was never sent before.
+/// * `combiner` - `DataCombiner` component responsible for calculating `DataPoints` based on `AnalyticsEvents` and `ScreenRoutes`.
+/// * `sender` - `Sender` componente responsible for preparing the message to be sent to the coordinator for aggregation.
+/// * `send_frequency_hours` - `Duration` in hours representing periods within which we want to send data to the coordinator only once.
 struct AnalyticsController {
     db: IsarDb,
     is_charging: bool,
@@ -97,6 +114,9 @@ impl AnalyticsController {
         &self.db
     }
 
+    /// Check whether `input_send_frequency_hours` is lower than 24 hours, otherwise return an `Error`.
+    /// If it's lower, return a `Duration`.
+    /// If it's `None`, assign `Self::MAX_SEND_FREQUENCY_HOURS` and turn it into a `Duration` as well.
     fn validate_send_frequency(input_send_frequency_hours: Option<u8>) -> Result<Duration, Error> {
         let send_frequency_hours =
             input_send_frequency_hours.unwrap_or(Self::MAX_SEND_FREQUENCY_HOURS);
@@ -115,6 +135,9 @@ impl AnalyticsController {
         can_send_data && !self.did_send_already_in_this_period()
     }
 
+    /// Check whether the new incoming `screen_route_name` already exists in the `ScreenRoutes` saved to the db.
+    /// If it exists, return the existing `ScreenRoute` object from the db.
+    /// If it doesn't exist, create the new `ScreenRoute` object, save it to db, and return a clone of it.
     fn add_screen_route_if_new(
         &self,
         screen_route_name: &str,
@@ -144,22 +167,22 @@ impl AnalyticsController {
         )
     }
 
-    /// This method implements a sliding 'time window' of self.send_frequency_hours duration, to check whether we have
+    /// This method implements a sliding 'time window' of `self.send_frequency_hours` duration, to check whether we have
     /// already sent data in the current window, or not.
     ///
     /// An alternative implementation could be based on simply checking whether:
-    /// last_time_data_sent > Utc::now() - self.send_frequency_hours
+    /// `last_time_data_sent > Utc::now() - self.send_frequency_hours`
     ///
     /// In the current implementation, it might be easier to then group the aggregated data on the coordinator side,
-    /// to then be displayed in the UI, especially if self.send_frequency_hours = Duration::hours(24).
+    /// to then be displayed in the UI, especially if `self.send_frequency_hours == Duration::hours(24)`.
     ///
-    /// The more dynamic approach however implies that if, for example, self.send_frequency_hours = Duration::hours(6),
+    /// The more dynamic approach however implies that if, for example, `self.send_frequency_hours == Duration::hours(6)`,
     /// and the last time we sent the data was at 5AM, we would be able to send again at 7AM, while with the simpler solution
     /// we wouldn't be able to send again until 11AM.
     ///
     /// The correct approach to be chosen should very much depend on the amount of data available for aggregation,
-    /// and it's possible that Self::MAX_SEND_FREQUENCY_HOURS should be increased to more than 24.
-    /// In that case, this function below will need to be reworked, because it' coupled with MAX_SEND_FREQUENCY_HOURS being 24.
+    /// and it's possible that `MAX_SEND_FREQUENCY_HOURS` should be increased to more than 24.
+    /// In that case, this function below will need to be reworked, because it' coupled with `MAX_SEND_FREQUENCY_HOURS` being 24.
     ///
     /// Only once it's more clear how the aggregation will work on the coordinator side, there will be more information
     /// to decide the approach here.
@@ -181,6 +204,9 @@ impl AnalyticsController {
             .unwrap_or(false)
     }
 
+    /// Retrive all `AnalyticsEvents` and `ScreenRoutes` from the db and pass them to the `DataCombiner`.
+    /// The `DataCombiner` will init all `DataPoints` and pack them in a `Vec<DataPoint>`, which will be the input to the `Sender`.
+    /// After that, save the new time_data_sent inside `ControllerData`, and cache it in `self.last_time_data_sent`
     fn send_data(&mut self) -> Result<(), Error> {
         let events = AnalyticsEvent::get_all(&self.db, &CollectionNames::ANALYTICS_EVENTS)?;
         let screen_routes = ScreenRoute::get_all(&self.db, &CollectionNames::SCREEN_ROUTES)?;

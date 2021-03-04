@@ -1,3 +1,5 @@
+//! Declaration and implementation of `DataCombiner`.
+
 use anyhow::{Error, Result};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use std::iter::empty;
@@ -19,6 +21,14 @@ use crate::{
     },
 };
 
+/// `DataCombiner` is responsible for instantiating the `DataPoint` variants. When it’s time to send the data to XayNet,
+/// the `AnalyticsEvents` and `ScreenRoutes` are retrieved from the db (by the `AnalyticsController`) and passed to the `DataCombier`,
+/// which then instantiates the various `DataPoint` variants and packs them in a `Vec`, which will be utilised by the `Sender`.
+///
+/// Possible improvements include:
+/// - Move the `DataPointMetadatas` to a sort of config, and pass them to the `DataCombiner`.
+/// - Turn `DataCombiner` into a trait on each `DataPoint`.
+/// See: https://xainag.atlassian.net/browse/XN-1651
 pub struct DataCombiner;
 
 impl<'screen> DataCombiner {

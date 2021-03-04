@@ -1,3 +1,5 @@
+//! Implementations of the methods needed to save and get `AnalyticsEvents` to/from Isar.
+
 use anyhow::{anyhow, Error, Result};
 use std::convert::{Into, TryFrom};
 
@@ -10,6 +12,9 @@ use crate::database::{
     isar::IsarDb,
 };
 
+/// Inside `get()` and `get_all()` there is an intermediate conversion from `Adapter` to `RelationalAdapter`,
+/// and then to data model (`AnalyticsEvent`), which is different than other data models where
+/// they can be converted directly from Adapter to data model.
 impl<'db> Repo<'db, AnalyticsEvent> for AnalyticsEvent {
     fn save(self, db: &'db IsarDb, collection_name: &str) -> Result<(), Error> {
         let mut object_builder = db.get_object_builder(collection_name)?;

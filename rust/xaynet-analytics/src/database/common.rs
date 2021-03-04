@@ -1,3 +1,7 @@
+//! This file contains traits and structs that are common to other components involved with the database.
+//! It could be split up in smaller files, especially if more traits reveice a default implementation.
+//! See: https://xainag.atlassian.net/browse/XN-1692
+
 use anyhow::{anyhow, Error, Result};
 use isar_core::{
     index::IndexType,
@@ -17,6 +21,11 @@ use std::{convert::TryFrom, vec::IntoIter};
 
 use crate::database::isar::IsarDb;
 
+/// `IsarAdapter` trait needs to be implemented for each data model adapters.
+/// This is needed to be able to tell Isar how to write/read objects to/from a collection.
+///
+/// The implementations of these methods could actually be automated by a macro, since they are always the same.
+/// See: https://xainag.atlassian.net/browse/XN-1689
 pub trait IsarAdapter<'object>: Sized {
     fn get_oid(&self) -> String;
 
@@ -41,6 +50,11 @@ pub trait IsarAdapter<'object>: Sized {
     }
 }
 
+/// This trait is implemented directly for each data model to have a high level API for `AnalyticsController` to
+/// save/get obejcts from the db.
+///
+/// Consider using default implementations here, to reduce boiler plate code in repo.rs files.
+/// See: https://xainag.atlassian.net/browse/XN-1688
 pub trait Repo<'db, M>
 where
     M: Sized,
@@ -52,6 +66,7 @@ where
     fn get(object_id: &str, db: &'db IsarDb, collection_name: &str) -> Result<M, Error>;
 }
 
+/// `FieldProperty` is a simple struct that holds data used to register properties and indexes for Isar schemas.
 pub struct FieldProperty {
     pub name: String,
     pub data_type: DataType,
@@ -74,6 +89,11 @@ impl FieldProperty {
     }
 }
 
+/// `SchemaGenerator` is needed to register the `PropertySchema` and `IndexSchema` for each `FieldProperty`.
+/// `PropertySchema` and `IndexSchema` are imported from Isar, while `FieldProperty` is an internal struct to
+/// make it conventient to iterate through each property (see the fold below).
+///
+/// When `Ok` it returns a `CollectionSchema` that is needed by Isar to manage a collection.
 pub trait SchemaGenerator<'object, A>
 where
     A: IsarAdapter<'object>,
@@ -100,6 +120,11 @@ where
     }
 }
 
+/// `RelationalField` is the struct that allows to save data model instances inside other data models.
+///
+/// ## Arguments
+/// * `value` - is a `String` representing an id with which the data model can be identified
+/// * `collection_name` - is the name of the collection where the object is saved
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RelationalField {
     pub value: String,
@@ -133,6 +158,8 @@ impl Into<String> for RelationalField {
     }
 }
 
+/// Stores the name of each collection. Whenever you need to make an operation on an `IsarCollection`,
+/// these `str`s are needed.
 pub struct CollectionNames;
 
 impl CollectionNames {
