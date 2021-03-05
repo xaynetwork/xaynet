@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// `DataCombiner` is responsible for instantiating the `DataPoint` variants. When it’s time to send the data to XayNet,
-/// the `AnalyticsEvents` and `ScreenRoutes` are retrieved from the db (by the `AnalyticsController`) and passed to the `DataCombier`,
+/// the `AnalyticsEvents` and `ScreenRoutes` are retrieved from the db (by the `AnalyticsController`) and passed to the `DataCombiner`,
 /// which then instantiates the various `DataPoint` variants and packs them in a `Vec`, which will be utilised by the `Sender`.
 ///
 /// Possible improvements include:

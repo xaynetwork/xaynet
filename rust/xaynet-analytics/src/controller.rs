@@ -28,10 +28,10 @@ use crate::{
 ///
 /// * `db` - Singleton instance of `IsarDb`, used to operate with the database.
 /// * `is_charging` - Boolean flag representing whether the phone is currently charging or not.
-/// * `is_cpnnected_to_wifi` - Boolean flag representing whether the phone is currently connected to the wifi or not.
+/// * `is_connected_to_wifi` - Boolean flag representing whether the phone is currently connected to the wifi or not.
 /// * `last_time_data_sent` - Timestamp representing when analytics data was last sent to the coordinator. If `None`, data was never sent before.
 /// * `combiner` - `DataCombiner` component responsible for calculating `DataPoints` based on `AnalyticsEvents` and `ScreenRoutes`.
-/// * `sender` - `Sender` componente responsible for preparing the message to be sent to the coordinator for aggregation.
+/// * `sender` - `Sender` component responsible for preparing the message to be sent to the coordinator for aggregation.
 /// * `send_frequency_hours` - `Duration` in hours representing periods within which we want to send data to the coordinator only once.
 struct AnalyticsController {
     db: IsarDb,
@@ -114,7 +114,7 @@ impl AnalyticsController {
         &self.db
     }
 
-    /// Check whether `input_send_frequency_hours` is lower than 24 hours, otherwise return an `Error`.
+    /// Check whether `input_send_frequency_hours` is at most `MAX_SEND_FREQUENCY_HOURS`, otherwise return an `Error`.
     /// If it's lower, return a `Duration`.
     /// If it's `None`, assign `Self::MAX_SEND_FREQUENCY_HOURS` and turn it into a `Duration` as well.
     fn validate_send_frequency(input_send_frequency_hours: Option<u8>) -> Result<Duration, Error> {

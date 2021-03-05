@@ -1,4 +1,4 @@
-//! In this file `AnalyticsEvent` and `AnalyticsEventType` are declared, together with tome conversion methods to/from adapters.
+//! In this file `AnalyticsEvent` and `AnalyticsEventType` are declared, together with some conversion methods to/from adapters.
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
@@ -46,7 +46,7 @@ impl TryFrom<i32> for AnalyticsEventType {
 /// It can be logged manually by the developers, or automatically detected by Flutter/the mobile framework side.
 /// ## Fields:
 /// * `name`: The name of the event.
-/// * `eventy_type`: The type of event.
+/// * `event_type`: The type of event.
 /// * `timestamp`: When the event was created.
 /// * `screen_route`: Optional field representing the screen on which the event was recorded.
 #[derive(Debug, PartialEq, Eq, Clone)]

@@ -26,7 +26,7 @@ impl Period {
 }
 
 /// `DataPointMetadata` contains information about `Period` and when the period ends. It is used to
-/// define which `AnalyticsEvents` fall inside a `Period` and must threfore be included in the calculation
+/// define which `AnalyticsEvents` fall inside a `Period` and must therefore be included in the calculation
 /// of a specific `DataPoint`.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DataPointMetadata {

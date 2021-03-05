@@ -11,7 +11,7 @@ use std::vec::IntoIter;
 
 use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
 
-/// Allows to convert an IsarObject from the db to an `ControllerData`.
+/// Allows to convert an IsarObject from the db to a `ControllerData`.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ControllerDataAdapter {
     pub time_data_sent: String,

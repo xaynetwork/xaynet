@@ -1,4 +1,4 @@
-//! In this file `ScreenRoute` is declared, together with tome conversion methods to/from adapters.
+//! In this file `ScreenRoute` is declared, together with some conversion methods to/from adapters.
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};

@@ -1,5 +1,5 @@
 //! This file contains traits and structs that are common to other components involved with the database.
-//! It could be split up in smaller files, especially if more traits reveice a default implementation.
+//! It could be split up in smaller files, especially if more traits receive a default implementation.
 //! See: https://xainag.atlassian.net/browse/XN-1692
 
 use anyhow::{anyhow, Error, Result};
@@ -51,7 +51,7 @@ pub trait IsarAdapter<'object>: Sized {
 }
 
 /// This trait is implemented directly for each data model to have a high level API for `AnalyticsController` to
-/// save/get obejcts from the db.
+/// save/get objects from the db.
 ///
 /// Consider using default implementations here, to reduce boiler plate code in repo.rs files.
 /// See: https://xainag.atlassian.net/browse/XN-1688
@@ -91,7 +91,7 @@ impl FieldProperty {
 
 /// `SchemaGenerator` is needed to register the `PropertySchema` and `IndexSchema` for each `FieldProperty`.
 /// `PropertySchema` and `IndexSchema` are imported from Isar, while `FieldProperty` is an internal struct to
-/// make it conventient to iterate through each property (see the fold below).
+/// make it convenient to iterate through each property (see the fold below).
 ///
 /// When `Ok` it returns a `CollectionSchema` that is needed by Isar to manage a collection.
 pub trait SchemaGenerator<'object, A>
