@@ -1,3 +1,6 @@
+//! This file contains struct and impls for `AnalyticsEventAdapter` and `AnalyticsEventRelationalAdapter`,
+//! as well as the implementation of `IsarAdapter` for `AnalyticsEventAdapter`.
+
 use anyhow::{anyhow, Error, Result};
 use isar_core::object::{
     data_type::DataType,
@@ -12,6 +15,8 @@ use crate::database::{
     screen_route::data_model::ScreenRoute,
 };
 
+/// `AnalyticsEventAdapter` allows to convert an `IsarObject` from the db to an `AnalyticsEvent`. It is an intermediate
+/// representation.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AnalyticsEventAdapter {
     pub name: String,
@@ -94,6 +99,9 @@ impl<'event> IsarAdapter<'event> for AnalyticsEventAdapter {
 
 impl<'event> SchemaGenerator<'event, AnalyticsEventAdapter> for AnalyticsEventAdapter {}
 
+/// `AnalyticsEventRelationalAdapter` is needed as an intermediate step when saving/retrieving events
+/// from the db because `AnalyticsEvent` contains an `Option<ScreenRoute>`, which, if `Some`, needs to be retrieved
+/// from a different collection in Isar.
 pub struct AnalyticsEventRelationalAdapter {
     pub name: String,
     pub event_type: i32,

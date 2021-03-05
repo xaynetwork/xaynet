@@ -1,3 +1,5 @@
+//! In this file `ScreenRoute` is declared, together with some conversion methods to/from adapters.
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::convert::{Into, TryFrom};
@@ -7,6 +9,7 @@ use crate::database::{
     screen_route::adapter::ScreenRouteAdapter,
 };
 
+/// A `ScreenRoute` is the internal representation of a screen in the app.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ScreenRoute {
     pub name: String,

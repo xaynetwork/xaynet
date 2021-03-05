@@ -1,3 +1,5 @@
+//! In this file `AnalyticsEvent` and `AnalyticsEventType` are declared, together with some conversion methods to/from adapters.
+
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use std::convert::{From, Into, TryFrom, TryInto};
@@ -8,6 +10,13 @@ use crate::database::{
     screen_route::data_model::ScreenRoute,
 };
 
+/// The type of `AnalyticsEvent` recorded on the framework side.
+/// ## Variants:
+/// * `AppEvent`: It refes to Flutter's `AppLifeCyclesEvents` (of the equivalent in other frameworks):
+///   https://flutter.dev/docs/get-started/flutter-for/android-devs#how-do-i-listen-to-android-activity-lifecycle-events
+/// * `AppError`: A known error logged by the developers
+/// * `ScreenEnter`: Registers when the user enters a specific screen
+/// * `UserAction`: A custom event logged by the developer (eg: clicked on a specific button)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AnalyticsEventType {
     AppEvent = 0,
@@ -33,6 +42,13 @@ impl TryFrom<i32> for AnalyticsEventType {
     }
 }
 
+/// The core data model of the library. It represents an event recorded on the mobile framework side.
+/// It can be logged manually by the developers, or automatically detected by Flutter/the mobile framework side.
+/// ## Fields:
+/// * `name`: The name of the event.
+/// * `event_type`: The type of event.
+/// * `timestamp`: When the event was created.
+/// * `screen_route`: Optional field representing the screen on which the event was recorded.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AnalyticsEvent {
     pub name: String,

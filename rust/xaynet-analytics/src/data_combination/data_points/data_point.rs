@@ -1,3 +1,5 @@
+//! File containing various structs used to define `DataPoints`.
+
 use chrono::{DateTime, Utc};
 
 use crate::database::analytics_event::data_model::AnalyticsEvent;
@@ -9,6 +11,8 @@ pub enum PeriodUnit {
     Months,
 }
 
+/// Period combines information about the unit of this period, and the number of periods.
+/// For example a `Period` of three weeks can be represented with `Period::new(unit: PeriodUnit::Weeks, n: 3)`
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Period {
     pub unit: PeriodUnit,
@@ -21,6 +25,9 @@ impl Period {
     }
 }
 
+/// `DataPointMetadata` contains information about `Period` and when the period ends. It is used to
+/// define which `AnalyticsEvents` fall inside a `Period` and must therefore be included in the calculation
+/// of a specific `DataPoint`.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DataPointMetadata {
     pub period: Period,
@@ -39,6 +46,15 @@ pub trait CalculateDataPoints {
     fn calculate(&self) -> Vec<u32>;
 }
 
+/// `DataPoint` is an enum whose variants represent data points that will need to be aggregated and shown to the user.
+/// They are the actual analytics information that is valuable to the user. Each `DataPoint` refers to a specific `Period`.
+/// ## Variants:
+/// * `ScreenActiveTime`: How much time was spent on a specific screen.
+/// * `ScreenEnterCount`: How many times the user entered a specific screen.
+/// * `WasActiveEachPastPeriod`: Whether the user was active or not in each specified period (in general, not by screen).
+/// * `WasActivePastNDays`: Whether the user was active or not in the past N days (in general, not by screen).
+///
+/// There are still more variants to be implemented: https://xainag.atlassian.net/browse/XN-1687
 #[derive(Debug, PartialEq, Eq)]
 pub enum DataPoint {
     ScreenActiveTime(CalcScreenActiveTime),

@@ -1,3 +1,6 @@
+//! This file contains struct and impl for `ControllerDataAdapter` the implementation of `IsarAdapter`
+//! for `ControllerDataAdapter`.
+
 use anyhow::{anyhow, Error, Result};
 use isar_core::object::{
     data_type::DataType,
@@ -8,6 +11,7 @@ use std::vec::IntoIter;
 
 use crate::database::common::{FieldProperty, IsarAdapter, SchemaGenerator};
 
+/// Allows to convert an IsarObject from the db to a `ControllerData`.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ControllerDataAdapter {
     pub time_data_sent: String,
