@@ -23,19 +23,19 @@ struct AnalyticsController {
     last_time_data_sent: Option<DateTime<Utc>>,
     combiner: DataCombiner,
     sender: Sender,
-    send_data_frequency: Duration,
+    send_frequency_hours: Duration,
 }
 
 // TODO: remove allow dead code when AnalyticsController is integrated with FFI layer: https://xainag.atlassian.net/browse/XN-1415
 #[allow(dead_code)]
 impl AnalyticsController {
-    const MAX_SEND_DATA_FREQUENCY_HOURS: u8 = 24;
+    const MAX_SEND_FREQUENCY_HOURS: u8 = 24;
 
     pub fn init(
         path: String,
         is_charging: bool,
         is_connected_to_wifi: bool,
-        input_send_data_frequency: Option<u8>,
+        input_send_frequency_hours: Option<u8>,
     ) -> Result<Self, Error> {
         let schemas = vec![
             AnalyticsEventAdapter::get_schema(&CollectionNames::ANALYTICS_EVENTS)?,
@@ -44,7 +44,7 @@ impl AnalyticsController {
         ];
         let db = IsarDb::new(&path, schemas)?;
         let last_time_data_sent = Self::get_last_time_data_sent(&db)?;
-        let send_data_frequency = Self::validate_send_data_frequency(input_send_data_frequency)?;
+        let send_frequency_hours = Self::validate_send_frequency(input_send_frequency_hours)?;
 
         Ok(AnalyticsController {
             db,
@@ -53,7 +53,7 @@ impl AnalyticsController {
             last_time_data_sent,
             combiner: DataCombiner,
             sender: Sender,
-            send_data_frequency,
+            send_frequency_hours,
         })
     }
 
@@ -97,18 +97,16 @@ impl AnalyticsController {
         &self.db
     }
 
-    fn validate_send_data_frequency(
-        input_send_data_frequency: Option<u8>,
-    ) -> Result<Duration, Error> {
-        let send_data_frequency =
-            input_send_data_frequency.unwrap_or(Self::MAX_SEND_DATA_FREQUENCY_HOURS);
-        if send_data_frequency > Self::MAX_SEND_DATA_FREQUENCY_HOURS {
+    fn validate_send_frequency(input_send_frequency_hours: Option<u8>) -> Result<Duration, Error> {
+        let send_frequency_hours =
+            input_send_frequency_hours.unwrap_or(Self::MAX_SEND_FREQUENCY_HOURS);
+        if send_frequency_hours > Self::MAX_SEND_FREQUENCY_HOURS {
             Err(anyhow!(
-                "input_send_data_frequency must be between 0 and {}",
-                Self::MAX_SEND_DATA_FREQUENCY_HOURS
+                "input_send_frequency_hours must be between 0 and {}",
+                Self::MAX_SEND_FREQUENCY_HOURS
             ))
         } else {
-            Ok(Duration::hours(send_data_frequency as i64))
+            Ok(Duration::hours(send_frequency_hours as i64))
         }
     }
 
@@ -146,21 +144,23 @@ impl AnalyticsController {
         )
     }
 
-    /// This method implements a sliding 'time window' of self.send_data_frequency duration, to check whether we have
+    /// This method implements a sliding 'time window' of self.send_frequency_hours duration, to check whether we have
     /// already sent data in the current window, or not.
     ///
     /// An alternative implementation could be based on simply checking whether:
-    /// last_time_data_sent > Utc::now() - self.send_data_frequency
+    /// last_time_data_sent > Utc::now() - self.send_frequency_hours
     ///
     /// In the current implementation, it might be easier to then group the aggregated data on the coordinator side,
-    /// to then be displayed in the UI, especially if self.send_data_frequency = Duration::hours(24).
+    /// to then be displayed in the UI, especially if self.send_frequency_hours = Duration::hours(24).
     ///
-    /// The more dynamic approach however implies that if, for example, self.send_data_frequency = Duration::hours(6),
+    /// The more dynamic approach however implies that if, for example, self.send_frequency_hours = Duration::hours(6),
     /// and the last time we sent the data was at 5AM, we would be able to send again at 7AM, while with the simpler solution
     /// we wouldn't be able to send again until 11AM.
     ///
     /// The correct approach to be chosen should very much depend on the amount of data available for aggregation,
-    /// and it's possible that Self::MAX_SEND_DATA_FREQUENCY_HOURS should be increased to more than 24.
+    /// and it's possible that Self::MAX_SEND_FREQUENCY_HOURS should be increased to more than 24.
+    /// In that case, this function below will need to be reworked, because it' coupled with MAX_SEND_FREQUENCY_HOURS being 24.
+    ///
     /// Only once it's more clear how the aggregation will work on the coordinator side, there will be more information
     /// to decide the approach here.
     fn did_send_already_in_this_period(&self) -> bool {
@@ -171,11 +171,11 @@ impl AnalyticsController {
                     NaiveDate::from_ymd(now.year(), now.month(), now.day()).and_hms(0, 0, 0),
                     Utc,
                 );
-                let mut end_of_current_period = start_of_day + self.send_data_frequency;
+                let mut end_of_current_period = start_of_day + self.send_frequency_hours;
                 while now > end_of_current_period {
-                    end_of_current_period = end_of_current_period + self.send_data_frequency;
+                    end_of_current_period = end_of_current_period + self.send_frequency_hours;
                 }
-                let start_of_current_period = end_of_current_period - self.send_data_frequency;
+                let start_of_current_period = end_of_current_period - self.send_frequency_hours;
                 last_time_data_sent > start_of_current_period
             })
             .unwrap_or(false)
@@ -245,17 +245,18 @@ mod tests {
         let timestamp = DateTime::parse_from_rfc3339("2021-01-01T01:01:00+00:00")
             .unwrap()
             .with_timezone(&Utc);
+        let existing_analytics_events =
+            AnalyticsEvent::get_all(controller.db(), CollectionNames::ANALYTICS_EVENTS).unwrap();
+        assert!(existing_analytics_events.is_empty());
         assert!(controller
             .save_analytics_event(name, event_type, timestamp, None)
             .is_ok());
 
         let analytics_event = AnalyticsEvent::new(name, event_type, timestamp, None);
         let all_analytics_events =
-            AnalyticsEvent::get_all(controller.db(), CollectionNames::ANALYTICS_EVENTS);
-        assert_eq!(
-            all_analytics_events.unwrap().first(),
-            Some(&analytics_event)
-        );
+            AnalyticsEvent::get_all(controller.db(), CollectionNames::ANALYTICS_EVENTS).unwrap();
+        assert_eq!(all_analytics_events.len(), 1);
+        assert_eq!(all_analytics_events.first(), Some(&analytics_event));
 
         cleanup(controller, test_name);
     }
@@ -270,7 +271,6 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let screen_route_name = "route";
-
         assert!(controller
             .save_analytics_event(name, event_type, timestamp, Some(screen_route_name))
             .is_ok());
@@ -278,11 +278,9 @@ mod tests {
         let screen_route = ScreenRoute::new(screen_route_name, timestamp);
         let analytics_event = AnalyticsEvent::new(name, event_type, timestamp, Some(screen_route));
         let all_analytics_events =
-            AnalyticsEvent::get_all(controller.db(), CollectionNames::ANALYTICS_EVENTS);
-        assert_eq!(
-            all_analytics_events.unwrap().first(),
-            Some(&analytics_event)
-        );
+            AnalyticsEvent::get_all(controller.db(), CollectionNames::ANALYTICS_EVENTS).unwrap();
+        assert_eq!(all_analytics_events.len(), 1);
+        assert_eq!(all_analytics_events.first(), Some(&analytics_event));
 
         cleanup(controller, test_name);
     }
@@ -291,10 +289,9 @@ mod tests {
     fn test_change_connectivity_status() {
         let test_name = "test_change_connectivity_status";
         let mut controller = get_controller(test_name, None);
-        assert_eq!(controller.is_connected_to_wifi, true);
-
+        assert!(controller.is_connected_to_wifi);
         controller.change_connectivity_status();
-        assert_eq!(controller.is_connected_to_wifi, false);
+        assert!(!controller.is_connected_to_wifi);
 
         cleanup(controller, test_name);
     }
@@ -303,10 +300,9 @@ mod tests {
     fn test_change_state_of_charge() {
         let test_name = "test_change_state_of_charge";
         let mut controller = get_controller(test_name, None);
-        assert_eq!(controller.is_charging, true);
-
+        assert!(controller.is_charging);
         controller.change_state_of_charge();
-        assert_eq!(controller.is_charging, false);
+        assert!(!controller.is_charging);
 
         cleanup(controller, test_name);
     }
@@ -314,20 +310,20 @@ mod tests {
     #[test]
     fn test_validate_send_data_frequency_when_none() {
         assert_eq!(
-            AnalyticsController::validate_send_data_frequency(None).unwrap(),
-            Duration::hours(AnalyticsController::MAX_SEND_DATA_FREQUENCY_HOURS as i64)
+            AnalyticsController::validate_send_frequency(None).unwrap(),
+            Duration::hours(AnalyticsController::MAX_SEND_FREQUENCY_HOURS as i64)
         )
     }
 
     #[test]
     fn test_validate_send_data_frequency_when_more_than_24() {
-        assert!(AnalyticsController::validate_send_data_frequency(Some(25)).is_err());
+        assert!(AnalyticsController::validate_send_frequency(Some(25)).is_err());
     }
 
     #[test]
     fn test_validate_send_data_frequency_when_less_than_24() {
         assert_eq!(
-            AnalyticsController::validate_send_data_frequency(Some(6)).unwrap(),
+            AnalyticsController::validate_send_frequency(Some(6)).unwrap(),
             Duration::hours(6)
         )
     }
@@ -335,7 +331,7 @@ mod tests {
     #[test]
     fn test_validate_send_data_frequency_when_0() {
         assert_eq!(
-            AnalyticsController::validate_send_data_frequency(Some(0)).unwrap(),
+            AnalyticsController::validate_send_frequency(Some(0)).unwrap(),
             Duration::hours(0)
         )
     }
@@ -349,6 +345,9 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let screen_route = ScreenRoute::new(screen_route_name, timestamp);
+        let existing_screen_routes =
+            ScreenRoute::get_all(controller.db(), CollectionNames::SCREEN_ROUTES).unwrap();
+        assert!(existing_screen_routes.is_empty());
         assert_eq!(
             controller
                 .add_screen_route_if_new(screen_route_name, timestamp)
@@ -410,6 +409,9 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let controller_data = ControllerData::new(timestamp);
+        let existing_controller_data =
+            ControllerData::get_all(controller.db(), CollectionNames::CONTROLLER_DATA).unwrap();
+        assert!(existing_controller_data.is_empty());
         assert!(controller_data
             .save(controller.db(), CollectionNames::CONTROLLER_DATA)
             .is_ok());
@@ -425,7 +427,6 @@ mod tests {
     fn test_did_send_already_in_this_period_never_sent_before() {
         let test_name = "test_did_send_already_in_this_period_never_sent_before";
         let controller = get_controller(test_name, Some(24));
-
         assert_eq!(controller.did_send_already_in_this_period(), false);
 
         cleanup(controller, test_name);
@@ -565,8 +566,8 @@ mod tests {
     }
 
     #[test]
-    fn test_did_send_already_in_this_period_outside_trice_6h() {
-        let test_name = "test_did_send_already_in_this_period_outside_trice_6h";
+    fn test_did_send_already_in_this_period_outside_thrice_6h() {
+        let test_name = "test_did_send_already_in_this_period_outside_thrice_6h";
         let initial_controller = get_controller(test_name, Some(6));
 
         let timestamp = Utc::now() - Duration::hours(19);
