@@ -47,3 +47,45 @@ impl From<ScreenRoute> for RelationalField {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_screen_route_try_from_adapter() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let screen_route = ScreenRoute::new("route", timestamp_parsed);
+        let adapter = ScreenRouteAdapter::new("route", timestamp_str);
+        assert_eq!(ScreenRoute::try_from(adapter).unwrap(), screen_route);
+    }
+
+    #[test]
+    fn test_adapter_into_screen_route() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let screen_route = ScreenRoute::new("route", timestamp_parsed);
+        let actual_adapter: ScreenRouteAdapter = screen_route.into();
+        let expected_adapter = ScreenRouteAdapter::new("route", timestamp_str);
+        assert_eq!(actual_adapter, expected_adapter);
+    }
+
+    #[test]
+    fn test_screen_route_from_relational_field() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let screen_route = ScreenRoute::new("route", timestamp_parsed);
+        let relational_field = RelationalField {
+            value: "route".to_string(),
+            collection_name: CollectionNames::SCREEN_ROUTES.to_string(),
+        };
+        assert_eq!(RelationalField::from(screen_route), relational_field);
+    }
+}

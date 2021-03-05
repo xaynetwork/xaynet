@@ -84,3 +84,129 @@ impl Into<AnalyticsEventAdapter> for AnalyticsEvent {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::common::CollectionNames;
+
+    #[test]
+    fn test_analytics_event_type_try_from_valid_i32() {
+        assert_eq!(
+            AnalyticsEventType::try_from(0).unwrap(),
+            AnalyticsEventType::AppEvent
+        );
+        assert_eq!(
+            AnalyticsEventType::try_from(1).unwrap(),
+            AnalyticsEventType::AppError
+        );
+        assert_eq!(
+            AnalyticsEventType::try_from(2).unwrap(),
+            AnalyticsEventType::ScreenEnter
+        );
+        assert_eq!(
+            AnalyticsEventType::try_from(3).unwrap(),
+            AnalyticsEventType::UserAction
+        );
+    }
+
+    #[test]
+    fn test_analytics_event_type_invalid_i32() {
+        assert!(AnalyticsEventType::try_from(42).is_err());
+    }
+
+    #[test]
+    fn test_analytics_event_try_from_relational_adapter_without_screen_route() {
+        let timestamp = "2021-01-01T01:01:00+00:00";
+        let relational_adapter = AnalyticsEventRelationalAdapter {
+            name: "test".to_string(),
+            event_type: 0,
+            timestamp: timestamp.to_string(),
+            screen_route: None,
+        };
+        let analytics_event = AnalyticsEvent::new(
+            "test",
+            AnalyticsEventType::AppEvent,
+            DateTime::parse_from_rfc3339(timestamp)
+                .unwrap()
+                .with_timezone(&Utc),
+            None,
+        );
+        assert_eq!(
+            AnalyticsEvent::try_from(relational_adapter).unwrap(),
+            analytics_event
+        );
+    }
+
+    #[test]
+    fn test_analytics_event_try_from_relational_adapter_with_screen_route() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let screen_route = ScreenRoute::new("route", timestamp_parsed);
+        let relational_adapter = AnalyticsEventRelationalAdapter {
+            name: "test".to_string(),
+            event_type: 2,
+            timestamp: timestamp_str.to_string(),
+            screen_route: Some(screen_route.clone()),
+        };
+        let analytics_event = AnalyticsEvent::new(
+            "test",
+            AnalyticsEventType::ScreenEnter,
+            timestamp_parsed,
+            Some(screen_route),
+        );
+        assert_eq!(
+            AnalyticsEvent::try_from(relational_adapter).unwrap(),
+            analytics_event
+        );
+    }
+
+    #[test]
+    fn test_analytics_event_try_into_adapter_without_screen_route() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let analytics_event =
+            AnalyticsEvent::new("test", AnalyticsEventType::AppError, timestamp_parsed, None);
+
+        let actual_analytics_event_adapter: AnalyticsEventAdapter =
+            analytics_event.try_into().unwrap();
+        let expected_analytics_event_adapter =
+            AnalyticsEventAdapter::new("test", 1, timestamp_str.to_string(), None);
+        assert_eq!(
+            actual_analytics_event_adapter,
+            expected_analytics_event_adapter
+        );
+    }
+
+    #[test]
+    fn test_analytics_event_try_into_adapter_with_screen_route() {
+        let timestamp_str = "2021-01-01T01:01:00+00:00";
+        let timestamp_parsed = DateTime::parse_from_rfc3339(timestamp_str)
+            .unwrap()
+            .with_timezone(&Utc);
+        let screen_route = ScreenRoute::new("route", timestamp_parsed);
+        let relationa_field = RelationalField {
+            value: "route".to_string(),
+            collection_name: CollectionNames::SCREEN_ROUTES.to_string(),
+        };
+        let analytics_event = AnalyticsEvent::new(
+            "test",
+            AnalyticsEventType::UserAction,
+            timestamp_parsed,
+            Some(screen_route),
+        );
+
+        let actual_analytics_event_adapter: AnalyticsEventAdapter =
+            analytics_event.try_into().unwrap();
+        let expected_analytics_event_adapter =
+            AnalyticsEventAdapter::new("test", 3, timestamp_str.to_string(), Some(relationa_field));
+        assert_eq!(
+            actual_analytics_event_adapter,
+            expected_analytics_event_adapter
+        );
+    }
+}

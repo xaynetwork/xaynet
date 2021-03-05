@@ -15,23 +15,32 @@ pub struct ScreenRouteAdapter {
 }
 
 impl ScreenRouteAdapter {
-    pub fn new(name: String, created_at: String) -> Self {
-        Self { name, created_at }
+    pub fn new<S: Into<String>>(name: S, created_at: S) -> Self {
+        Self {
+            name: name.into(),
+            created_at: created_at.into(),
+        }
     }
 }
 
 impl<'screen> IsarAdapter<'screen> for ScreenRouteAdapter {
+    fn get_oid(&self) -> String {
+        self.name.clone()
+    }
+
     fn into_field_properties() -> IntoIter<FieldProperty> {
         vec![
-            FieldProperty::new("created_at".to_string(), DataType::String),
-            FieldProperty::new("name".to_string(), DataType::String),
+            FieldProperty::new("oid", DataType::String, true),
+            FieldProperty::new("name", DataType::String, false),
+            FieldProperty::new("created_at", DataType::String, false),
         ]
         .into_iter()
     }
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder) {
-        object_builder.write_string(Some(&self.created_at));
+        object_builder.write_string(Some(&self.get_oid()));
         object_builder.write_string(Some(&self.name));
+        object_builder.write_string(Some(&self.created_at));
     }
 
     fn read(

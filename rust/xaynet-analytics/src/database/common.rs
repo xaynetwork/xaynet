@@ -1,18 +1,25 @@
 use anyhow::{anyhow, Error, Result};
 use isar_core::{
-    index::StringIndexType,
+    index::IndexType,
     object::{
         data_type::DataType,
         isar_object::{IsarObject, Property},
         object_builder::ObjectBuilder,
     },
-    schema::collection_schema::CollectionSchema,
+    schema::collection_schema::{
+        CollectionSchema,
+        IndexPropertySchema,
+        IndexSchema,
+        PropertySchema,
+    },
 };
 use std::{convert::TryFrom, vec::IntoIter};
 
 use crate::database::isar::IsarDb;
 
 pub trait IsarAdapter<'object>: Sized {
+    fn get_oid(&self) -> String;
+
     fn into_field_properties() -> IntoIter<FieldProperty>;
 
     fn write_with_object_builder(&self, object_builder: &mut ObjectBuilder);
@@ -45,60 +52,23 @@ where
     fn get(object_id: &str, db: &'db IsarDb, collection_name: &str) -> Result<M, Error>;
 }
 
-pub struct MockRepo {}
-
-pub struct MockObject {}
-
-impl<'object> IsarAdapter<'object> for MockObject {
-    fn into_field_properties() -> IntoIter<FieldProperty> {
-        unimplemented!()
-    }
-
-    fn write_with_object_builder(&self, _object_builder: &mut ObjectBuilder) {
-        unimplemented!()
-    }
-
-    fn read(
-        _isar_object: &'object IsarObject,
-        _isar_properties: &'object [(String, Property)],
-    ) -> Result<MockObject, Error> {
-        unimplemented!()
-    }
-}
-
-impl<'db> Repo<'db, MockObject> for MockObject {
-    fn save(self, _db: &'db IsarDb, _collection_name: &str) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    fn get_all(_db: &'db IsarDb, _collection_name: &str) -> Result<Vec<MockObject>, Error> {
-        unimplemented!()
-    }
-
-    fn get(
-        _object_id: &str,
-        _db: &'db IsarDb,
-        _collection_name: &str,
-    ) -> Result<MockObject, Error> {
-        unimplemented!()
-    }
-}
-
 pub struct FieldProperty {
     pub name: String,
     pub data_type: DataType,
-    pub string_index_type: StringIndexType,
+    pub is_oid: bool,
+    pub index_type: IndexType,
     pub is_case_sensitive: bool,
     pub is_unique: bool,
 }
 
 impl FieldProperty {
-    pub fn new(name: String, data_type: DataType) -> Self {
+    pub fn new<N: Into<String>>(name: N, data_type: DataType, is_oid: bool) -> Self {
         Self {
-            name,
+            name: name.into(),
             data_type,
-            string_index_type: StringIndexType::Hash,
-            is_case_sensitive: true,
+            is_oid,
+            index_type: IndexType::Value,
+            is_case_sensitive: data_type == DataType::String,
             is_unique: true,
         }
     }
@@ -109,37 +79,24 @@ where
     A: IsarAdapter<'object>,
 {
     fn get_schema(name: &str) -> Result<CollectionSchema, Error> {
-        A::into_field_properties().try_fold(
-            CollectionSchema::new(name, &format!("{}_oid", name), DataType::String),
-            |mut schema, prop| {
-                schema
-                    .add_property(&prop.name, prop.data_type)
-                    .map_err(|_| {
-                        anyhow!(
-                            "failed to add property {} to collection {}",
-                            prop.name,
-                            name
-                        )
-                    })?;
-                schema
-                    .add_index(
-                        &[(
-                            &prop.name,
-                            Some(prop.string_index_type),
-                            prop.is_case_sensitive,
-                        )],
-                        prop.is_unique,
-                    )
-                    .map_err(|_| {
-                        anyhow!(
-                            "failed to add index for {} to collection {}",
-                            prop.name,
-                            name
-                        )
-                    })?;
-                Ok(schema)
+        let (properties, indexes) = A::into_field_properties().fold(
+            (Vec::new(), Vec::new()),
+            |(mut properties, mut indexes), prop| {
+                let property_schema = PropertySchema::new(&prop.name, prop.data_type, prop.is_oid);
+                let is_index_case_sensitive =
+                    Some(true).filter(|_| prop.data_type == DataType::String);
+                let index_property_schema = vec![IndexPropertySchema::new(
+                    &prop.name,
+                    prop.index_type,
+                    is_index_case_sensitive,
+                )];
+                let index_schema = IndexSchema::new(index_property_schema, prop.is_unique);
+                properties.push(property_schema);
+                indexes.push(index_schema);
+                (properties, indexes)
             },
-        )
+        );
+        Ok(CollectionSchema::new(name, properties, indexes))
     }
 }
 
@@ -172,7 +129,7 @@ impl TryFrom<&str> for RelationalField {
 
 impl Into<String> for RelationalField {
     fn into(self) -> String {
-        format!("{:?}={:?}", self.value, self.collection_name)
+        [self.value, self.collection_name].join("=")
     }
 }
 
