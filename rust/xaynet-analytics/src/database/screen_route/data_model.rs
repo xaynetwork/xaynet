@@ -9,7 +9,7 @@ use crate::database::{
     screen_route::adapter::ScreenRouteAdapter,
 };
 
-/// A `ScreenRoute` is the internal representation of a screen in the app installing the library.
+/// A `ScreenRoute` is the internal representation of a screen in the app.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ScreenRoute {
     pub name: String,
