@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 anyhow = "1.0.39"
 bitflags = "1.2.1"
-derive_more = { version = "0.99.11", default-features = false, features = [
+derive_more = { version = "0.99.13", default-features = false, features = [
     "as_ref",
     "as_mut",
     "display",
