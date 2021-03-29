@@ -13,7 +13,7 @@ license-file = "../../LICENSE"
 publish = false
 
 [dependencies]
-anyhow = "1.0.39"
+anyhow = "1.0.40"
 async-trait = "0.1.48"
 chrono = { version = "0.4.19" }
 config = "0.11.0"
