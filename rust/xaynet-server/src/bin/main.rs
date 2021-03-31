@@ -78,6 +78,9 @@ async fn main() {
         services::messages::PetMessageHandler::new(&event_subscriber, requests_tx);
 
     tokio::select! {
+        biased;
+
+        _ =  signal::ctrl_c() => {}
         _ = state_machine.run() => {
             warn!("shutting down: Service terminated");
         }
@@ -89,7 +92,6 @@ async fn main() {
                 },
             }
         }
-        _ =  signal::ctrl_c() => {}
     }
 }
 

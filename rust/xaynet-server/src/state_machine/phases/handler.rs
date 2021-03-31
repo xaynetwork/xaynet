@@ -145,6 +145,8 @@ where
 
         loop {
             tokio::select! {
+                biased;
+
                 _ = &mut deadline => {
                     debug!("duration elapsed");
                     break Ok(());
