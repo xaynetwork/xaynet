@@ -5,9 +5,6 @@ include_version = true
 [export]
 exclude = ["_xaynet_ffi_settings_destroy", "_xaynet_ffi_participant_destroy", "_xaynet_ffi_local_model_config_destroy"]
 
-[parse.expand]
-crates = ["xaynet-mobile"]
-
 [parse]
 parse_deps = true
 include = ["ffi-support"]
