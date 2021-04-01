@@ -1,15 +1,21 @@
-use std::{env, fs::read_dir, path::PathBuf};
+use std::{
+    env,
+    fs::read_dir,
+    path::{Path, PathBuf},
+};
 
-use cbindgen::{Builder, Config};
+use cbindgen::{generate_with_config, Config};
 
-fn cargo_rerun_if_changed(dir: PathBuf) {
-    for entry in read_dir(dir).expect("Failed to read dir.") {
-        let entry = entry.expect("Failed to read entry.").path();
-        if entry.is_dir() {
-            cargo_rerun_if_changed(entry);
-        } else {
-            println!("cargo:rerun-if-changed={}", entry.display());
+// cargo doesn't check directories recursively so we have to do it by hand, also emitting a
+// rerun-if line cancels the default rerun for changes in the crate directory
+fn cargo_rerun_if_changed(entry: impl AsRef<Path>) {
+    let entry = entry.as_ref();
+    if entry.is_dir() {
+        for entry in read_dir(entry).expect("Failed to read dir.") {
+            cargo_rerun_if_changed(entry.expect("Failed to read entry.").path());
         }
+    } else {
+        println!("cargo:rerun-if-changed={}", entry.display());
     }
 }
 
@@ -20,20 +26,12 @@ fn main() {
     let bind_config = crate_dir.join("cbindgen.toml");
     let bind_file = crate_dir.join("xaynet_ffi.h");
 
-    // cargo doesn't check directories recursively so we have to do it by hand, also emitting a
-    // rerun-if line cancels the default rerun for changes in the crate directory
     cargo_rerun_if_changed(crate_dir.join("src"));
-    println!(
-        "cargo:rerun-if-changed={}",
-        crate_dir.join("Cargo.toml").display(),
-    );
-    println!("cargo:rerun-if-changed={}", bind_config.display());
+    cargo_rerun_if_changed(crate_dir.join("Cargo.toml"));
+    cargo_rerun_if_changed(bind_config.as_path());
 
     let config = Config::from_file(bind_config).expect("Failed to read config.");
-    Builder::new()
-        .with_crate(crate_dir)
-        .with_config(config)
-        .generate()
+    generate_with_config(crate_dir, config)
         .expect("Failed to generate bindings.")
         .write_to_file(bind_file);
 }
