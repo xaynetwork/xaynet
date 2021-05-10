@@ -251,7 +251,7 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> LengthValueBuffer<&'a mut T> {
     /// # Panics
     /// This method may panic if buffer is not a valid Length-Value item.
     pub fn bytes_mut(&mut self) -> &mut [u8] {
-        &mut self.inner.as_mut()[..]
+        self.inner.as_mut()
     }
 }
 

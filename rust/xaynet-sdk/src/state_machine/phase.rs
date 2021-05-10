@@ -29,7 +29,7 @@ pub struct State<P> {
 impl<P> State<P> {
     /// Create a new state
     pub fn new(shared: Box<SharedState>, private: Box<P>) -> Self {
-        Self { shared, private }
+        Self { private, shared }
     }
 }
 
