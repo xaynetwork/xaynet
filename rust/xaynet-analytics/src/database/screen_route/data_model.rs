@@ -36,9 +36,9 @@ impl TryFrom<ScreenRouteAdapter> for ScreenRoute {
     }
 }
 
-impl Into<ScreenRouteAdapter> for ScreenRoute {
-    fn into(self) -> ScreenRouteAdapter {
-        ScreenRouteAdapter::new(self.name, self.created_at.to_rfc3339())
+impl From<ScreenRoute> for ScreenRouteAdapter {
+    fn from(sr: ScreenRoute) -> Self {
+        ScreenRouteAdapter::new(sr.name, sr.created_at.to_rfc3339())
     }
 }
 

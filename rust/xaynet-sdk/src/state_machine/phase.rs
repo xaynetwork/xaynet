@@ -312,11 +312,11 @@ pub enum SerializableState {
     SendingSum2(State<SendingSum2>),
 }
 
-impl<P> Into<SerializableState> for Phase<P>
+impl<P> From<Phase<P>> for SerializableState
 where
     State<P>: Into<SerializableState>,
 {
-    fn into(self) -> SerializableState {
-        self.state.into()
+    fn from(phase: Phase<P>) -> Self {
+        phase.state.into()
     }
 }

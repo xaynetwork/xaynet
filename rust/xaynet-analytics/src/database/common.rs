@@ -152,9 +152,9 @@ impl TryFrom<&str> for RelationalField {
     }
 }
 
-impl Into<String> for RelationalField {
-    fn into(self) -> String {
-        [self.value, self.collection_name].join("=")
+impl From<RelationalField> for String {
+    fn from(rf: RelationalField) -> String {
+        [rf.value, rf.collection_name].join("=")
     }
 }
 

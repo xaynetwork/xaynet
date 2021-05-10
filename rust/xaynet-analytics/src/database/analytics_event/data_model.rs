@@ -90,13 +90,13 @@ impl TryFrom<AnalyticsEventRelationalAdapter> for AnalyticsEvent {
     }
 }
 
-impl Into<AnalyticsEventAdapter> for AnalyticsEvent {
-    fn into(self) -> AnalyticsEventAdapter {
+impl From<AnalyticsEvent> for AnalyticsEventAdapter {
+    fn from(ae: AnalyticsEvent) -> Self {
         AnalyticsEventAdapter::new(
-            self.name,
-            self.event_type as i32,
-            self.timestamp.to_rfc3339(),
-            self.screen_route.map(RelationalField::from),
+            ae.name,
+            ae.event_type as i32,
+            ae.timestamp.to_rfc3339(),
+            ae.screen_route.map(RelationalField::from),
         )
     }
 }
