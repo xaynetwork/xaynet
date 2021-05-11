@@ -51,11 +51,11 @@ pub struct LocalModelConfig {
     pub len: u64,
 }
 
-impl Into<LocalModelConfig> for xaynet_sdk::LocalModelConfig {
-    fn into(self) -> LocalModelConfig {
+impl From<xaynet_sdk::LocalModelConfig> for LocalModelConfig {
+    fn from(lmc: xaynet_sdk::LocalModelConfig) -> Self {
         LocalModelConfig {
-            data_type: self.data_type.into(),
-            len: self.len as u64,
+            data_type: lmc.data_type.into(),
+            len: lmc.len as u64,
         }
     }
 }
@@ -73,9 +73,9 @@ pub enum ModelDataType {
     I64 = 3,
 }
 
-impl Into<ModelDataType> for DataType {
-    fn into(self) -> ModelDataType {
-        match self {
+impl From<DataType> for ModelDataType {
+    fn from(dt: DataType) -> Self {
+        match dt {
             DataType::F32 => ModelDataType::F32,
             DataType::F64 => ModelDataType::F64,
             DataType::I32 => ModelDataType::I32,

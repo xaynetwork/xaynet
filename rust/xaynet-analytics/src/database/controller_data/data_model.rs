@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use std::convert::{Into, TryFrom};
+use std::convert::TryFrom;
 
 use crate::database::controller_data::adapter::ControllerDataAdapter;
 
@@ -29,9 +29,9 @@ impl TryFrom<ControllerDataAdapter> for ControllerData {
     }
 }
 
-impl Into<ControllerDataAdapter> for ControllerData {
-    fn into(self) -> ControllerDataAdapter {
-        ControllerDataAdapter::new(self.time_data_sent.to_rfc3339())
+impl From<ControllerData> for ControllerDataAdapter {
+    fn from(cd: ControllerData) -> Self {
+        ControllerDataAdapter::new(cd.time_data_sent.to_rfc3339())
     }
 }
 

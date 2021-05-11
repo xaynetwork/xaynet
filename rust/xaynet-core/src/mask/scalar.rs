@@ -210,7 +210,7 @@ impl IntoPrimitive<f32> for Scalar {
 impl FromPrimitive<f32> for Scalar {
     fn from_primitive(prim: f32) -> Result<Self, PrimitiveCastError<f32>> {
         let r = Ratio::from_float(prim).ok_or(PrimitiveCastError(prim))?;
-        Ok(r.try_into().map_err(|_| PrimitiveCastError(prim))?)
+        r.try_into().map_err(|_| PrimitiveCastError(prim))
     }
 
     fn from_primitive_bounded(prim: f32) -> Self {
@@ -235,7 +235,7 @@ impl IntoPrimitive<f64> for Scalar {
 impl FromPrimitive<f64> for Scalar {
     fn from_primitive(prim: f64) -> Result<Self, PrimitiveCastError<f64>> {
         let r = Ratio::from_float(prim).ok_or(PrimitiveCastError(prim))?;
-        Ok(r.try_into().map_err(|_| PrimitiveCastError(prim))?)
+        r.try_into().map_err(|_| PrimitiveCastError(prim))
     }
 
     fn from_primitive_bounded(prim: f64) -> Self {

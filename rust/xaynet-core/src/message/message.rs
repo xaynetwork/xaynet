@@ -460,9 +460,9 @@ impl TryFrom<u8> for Tag {
     }
 }
 
-impl Into<u8> for Tag {
-    fn into(self) -> u8 {
-        match self {
+impl From<Tag> for u8 {
+    fn from(tag: Tag) -> Self {
+        match tag {
             Tag::Sum => 1,
             Tag::Update => 2,
             Tag::Sum2 => 3,

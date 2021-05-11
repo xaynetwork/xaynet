@@ -29,7 +29,7 @@ pub struct State<P> {
 impl<P> State<P> {
     /// Create a new state
     pub fn new(shared: Box<SharedState>, private: Box<P>) -> Self {
-        Self { shared, private }
+        Self { private, shared }
     }
 }
 
@@ -312,11 +312,11 @@ pub enum SerializableState {
     SendingSum2(State<SendingSum2>),
 }
 
-impl<P> Into<SerializableState> for Phase<P>
+impl<P> From<Phase<P>> for SerializableState
 where
     State<P>: Into<SerializableState>,
 {
-    fn into(self) -> SerializableState {
-        self.state.into()
+    fn from(phase: Phase<P>) -> Self {
+        phase.state.into()
     }
 }

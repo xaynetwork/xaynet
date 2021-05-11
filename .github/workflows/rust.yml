@@ -10,8 +10,8 @@ on:
       - 'README.tpl'
 
 env:
-  RUST_STABLE: 1.49.0
-  RUST_NIGHTLY: nightly-2021-01-31
+  RUST_STABLE: 1.52.1
+  RUST_NIGHTLY: nightly-2021-05-10
 
 jobs:
   registry-cache:

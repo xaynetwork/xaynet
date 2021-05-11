@@ -87,9 +87,9 @@ impl From<MaskObject> for Aggregation {
     }
 }
 
-impl Into<MaskObject> for Aggregation {
-    fn into(self) -> MaskObject {
-        self.object
+impl From<Aggregation> for MaskObject {
+    fn from(aggr: Aggregation) -> Self {
+        aggr.object
     }
 }
 
