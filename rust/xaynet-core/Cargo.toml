@@ -32,7 +32,7 @@ rand = "0.8.3"
 rand_chacha = "0.3.0"
 serde = { version = "1.0.126", features = ["derive"] }
 sodiumoxide = "0.2.6"
-thiserror = "1.0.24"
+thiserror = "1.0.25"
 
 [features]
 testutils = []
