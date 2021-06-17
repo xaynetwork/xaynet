@@ -477,7 +477,7 @@ mod tests {
 
                     // Step 2: Generate a random model
                     let bound = if $bound == 0 {
-                        paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
+                        paste::expr! { [<$data:lower>]::MAX / (2.1 as [<$data:lower>]) }
                     } else {
                         paste::expr! { $bound as [<$data:lower>] }
                     };
@@ -627,7 +627,7 @@ mod tests {
                     // Step 2: Generate a random scalar from (0, bound]
                     // take vector [1, ..., 1] as the model to scale
                     let bound = if $bound == 0 {
-                        paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
+                        paste::expr! { [<$data:lower>]::MAX / (2.1 as [<$data:lower>]) }
                     } else {
                         paste::expr! { $bound as [<$data:lower>] }
                     };
@@ -872,7 +872,7 @@ mod tests {
 
                     // Step 2: Generate random models
                     let bound = if $bound == 0 {
-                        paste::expr! { [<$data:lower>]::MAX / (2 as [<$data:lower>]) }
+                        paste::expr! { [<$data:lower>]::MAX / (2.1 as [<$data:lower>]) }
                     } else {
                         paste::expr! { $bound as [<$data:lower>] }
                     };
