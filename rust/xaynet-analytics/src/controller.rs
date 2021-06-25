@@ -453,7 +453,7 @@ mod tests {
     fn test_did_send_already_in_this_period_never_sent_before() {
         let test_name = "test_did_send_already_in_this_period_never_sent_before";
         let controller = get_controller(test_name, Some(24));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -472,7 +472,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(24));
-        assert_eq!(controller.did_send_already_in_this_period(), true);
+        assert!(controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -491,7 +491,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(24));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -510,7 +510,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(12));
-        assert_eq!(controller.did_send_already_in_this_period(), true);
+        assert!(controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -529,7 +529,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(12));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -548,7 +548,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(6));
-        assert_eq!(controller.did_send_already_in_this_period(), true);
+        assert!(controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -567,7 +567,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(6));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -586,7 +586,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(6));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }
@@ -605,7 +605,7 @@ mod tests {
         // init controller again, to read self.last_time_data_sent from db
         assert!(initial_controller.dispose().is_ok());
         let controller = get_controller(test_name, Some(6));
-        assert_eq!(controller.did_send_already_in_this_period(), false);
+        assert!(!controller.did_send_already_in_this_period());
 
         cleanup(controller, test_name);
     }

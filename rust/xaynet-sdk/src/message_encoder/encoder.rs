@@ -245,7 +245,7 @@ mod tests {
 
         let data = enc.next().unwrap();
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
-        assert_eq!(parsed.is_multipart, false);
+        assert!(!parsed.is_multipart);
         assert_eq!(parsed.payload, msg.payload);
         assert!(enc.next().is_none());
     }
@@ -271,7 +271,7 @@ mod tests {
         // of 268) from the Update payload. So 76 bytes remain.
         assert_eq!(data.len(), 200 + 136);
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
-        assert_eq!(parsed.is_multipart, true);
+        assert!(parsed.is_multipart);
         let chunk1 = extract_chunk(parsed);
         assert!(!chunk1.last);
         assert_eq!(chunk1.id, 0);
@@ -282,7 +282,7 @@ mod tests {
         // plus 136 byte for the message header
         assert_eq!(data.len(), 84 + 136);
         let parsed = Message::from_byte_slice(&data.as_slice()).unwrap();
-        assert_eq!(parsed.is_multipart, true);
+        assert!(parsed.is_multipart);
         let chunk2 = extract_chunk(parsed);
         assert!(chunk2.last);
         assert_eq!(chunk2.id, 1);

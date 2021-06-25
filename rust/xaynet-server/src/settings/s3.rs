@@ -562,7 +562,7 @@ mod tests {
             .build();
 
         let settings = Settings::load_from_str(&config).unwrap();
-        assert_eq!(settings.restore.enable, false);
+        assert!(!settings.restore.enable);
     }
 
     #[test]
