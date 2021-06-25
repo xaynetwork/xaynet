@@ -53,7 +53,7 @@ redis = { version = "0.20.1", default-features = false, features = [
     "script",
     "tokio-comp",
 ] }
-sodiumoxide = "0.2.6"
+sodiumoxide = "0.2.7"
 structopt = "0.3.21"
 thiserror = "1.0.25"
 tokio = { version = "1.7.1", features = [
