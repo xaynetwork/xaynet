@@ -5,6 +5,8 @@
 //! [sodiumoxide]: https://docs.rs/sodiumoxide/
 //! [crypto module]: crate::crypto
 
+use std::convert::TryInto;
+
 use derive_more::{AsMut, AsRef, From};
 use num::{
     bigint::{BigUint, ToBigInt},
@@ -120,29 +122,50 @@ impl ByteObject for SecretSigningKey {
     }
 }
 
-#[derive(
-    AsRef,
-    AsMut,
-    From,
-    Serialize,
-    Deserialize,
-    Hash,
-    Eq,
-    Ord,
-    PartialEq,
-    Copy,
-    Clone,
-    PartialOrd,
-    Debug,
-)]
+#[derive(AsRef, AsMut, From, Eq, PartialEq, Copy, Clone, Debug)]
 /// An `Ed25519` signature detached from its message.
 pub struct Signature(sign::Signature);
+
+mod manually_derive_serde_for_signature {
+    //! TODO:
+    //! remove this if sodiumoxide decides to reintroduce serialization of signatures
+    //! https://github.com/sodiumoxide/sodiumoxide/pull/434
+
+    use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+
+    use crate::crypto::{sign::Signature, ByteObject};
+
+    impl Serialize for Signature {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.as_slice().serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Signature {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let bytes = <&[u8] as Deserialize>::deserialize(deserializer)?;
+            Self::from_slice(bytes).ok_or_else(|| {
+                D::Error::custom(format!(
+                    "invalid length {}, expected {}",
+                    bytes.len(),
+                    Self::LENGTH,
+                ))
+            })
+        }
+    }
+}
 
 impl ByteObject for Signature {
     const LENGTH: usize = sign::SIGNATUREBYTES;
 
     fn zeroed() -> Self {
-        Self(sign::Signature([0_u8; sign::SIGNATUREBYTES]))
+        Self(sign::Signature::new([0_u8; Self::LENGTH]))
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -150,7 +173,7 @@ impl ByteObject for Signature {
     }
 
     fn from_slice(bytes: &[u8]) -> Option<Self> {
-        sign::Signature::from_slice(bytes).map(Self)
+        bytes.try_into().ok().map(Self)
     }
 }
 
@@ -219,7 +242,7 @@ mod tests {
             172, 29, 85, 219, 118, 44, 107, 32, 219, 253, 25, 242, 53, 45, 111, 62, 102, 130, 24,
             8, 222, 199, 34, 120, 166, 163, 223, 229, 100, 50, 252, 244, 250, 88, 196, 151, 136,
             48, 39, 198, 166, 86, 29, 151, 13, 81, 69, 198, 40, 148, 134, 126, 7, 202, 1, 56, 174,
-            43, 89, 28, 242, 194, 4, 214,
+            43, 89, 28, 242, 194, 4, 0,
         ]);
         assert!(sig.is_eligible(0.5_f64));
 
@@ -228,7 +251,7 @@ mod tests {
             119, 2, 197, 174, 52, 165, 229, 22, 218, 210, 240, 188, 220, 232, 149, 129, 211, 13,
             61, 217, 186, 79, 102, 15, 109, 237, 83, 193, 12, 117, 210, 66, 99, 230, 30, 131, 63,
             108, 28, 222, 48, 92, 153, 71, 159, 220, 115, 181, 183, 155, 146, 182, 205, 89, 140,
-            234, 100, 40, 199, 248, 23, 147, 172, 248,
+            234, 100, 40, 199, 248, 23, 147, 172, 0,
         ]);
         assert!(!sig.is_eligible(0.5_f64));
     }

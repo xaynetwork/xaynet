@@ -24,7 +24,7 @@ use crate::{
 pub const HEADER_LENGTH: usize = 136;
 
 pub fn signature() -> (Signature, Vec<u8>) {
-    let bytes = vec![0xaa; 64];
+    let bytes = vec![0x1a; 64];
     let signature = Signature::from_slice(bytes.as_slice()).unwrap();
     (signature, bytes)
 }
@@ -116,7 +116,7 @@ pub mod update {
 
     /// Return a fake update task signature and its serialized version
     pub fn update_task_signature() -> (Signature, Vec<u8>) {
-        let bytes = vec![0x44; 64];
+        let bytes = vec![0x14; 64];
         let signature = Signature::from_slice(&bytes[..]).unwrap();
         (signature, bytes)
     }
