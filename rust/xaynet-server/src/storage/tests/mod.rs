@@ -115,7 +115,7 @@ mock! {
         async fn is_ready(&mut self) -> StorageResult<()>;
     }
 
-    impl Clone for TAnchor {
+    impl Clone for TrustAnchor {
         fn clone(&self) -> Self;
     }
 }
