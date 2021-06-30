@@ -204,7 +204,7 @@ mod tests {
     fn sum() -> (Vec<u8>, Sum) {
         let mut start_byte: u8 = 0xff;
         let f = move || {
-            start_byte = start_byte.wrapping_add(1);
+            start_byte = start_byte.wrapping_add(1) & 0b_0001_1111;
             Some(start_byte)
         };
         let bytes: Vec<u8> = iter::from_fn(f)
