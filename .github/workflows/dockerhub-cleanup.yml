@@ -21,7 +21,7 @@ jobs:
 
       - name: Setup hub-tool
         run: |
-					LATEST=$(curl --silent "https://api.github.com/repos/$1/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+					LATEST=$(curl --silent "https://api.github.com/repos/docker/hub-tool/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           wget https://github.com/docker/hub-tool/releases/download/${LATEST}/hub-tool-linux-amd64.tar.gz -O /tmp/hub-tool-linux-amd64.tar.gz
           tar xzvf /tmp/hub-tool-linux-amd64.tar.gz --strip-components 1 -C /usr/local/bin/ hub-tool/hub-tool
           /usr/bin/expect <(cat << EOF
