@@ -1,0 +1,60 @@
+name: DockerHub Scheduled Cleanup
+
+on:
+  schedule:
+    - cron: '00 00 * * sun'
+  workflow_dispatch:
+
+jobs:
+  dockerhub-cleanup-inactive:
+    name: Cleanup inactive xaynet tags on Dockerhub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Setup hub-tool
+        run: |
+					get_latest_release() {
+					  curl --silent "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
+					    grep '"tag_name":' |                                            # Get tag line
+					    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+					}
+          LATEST=$(get_latest_release docker/hub-tool)
+          wget https://github.com/docker/hub-tool/releases/download/${LATEST}/hub-tool-linux-amd64.tar.gz -O /tmp/hub-tool-linux-amd64.tar.gz
+          tar xzvf /tmp/hub-tool-linux-amd64.tar.gz --strip-components 1 -C /usr/local/bin/ hub-tool/hub-tool
+          /usr/bin/expect <(cat << EOF
+          spawn hub-tool login ${{ secrets.DOCKER_USERNAME }}
+          expect "Password:"
+          send "${{ secrets.DOCKER_PASSWORD }}\r"
+          interact
+          EOF
+          )
+          echo -e "Inactive tags:"
+          hub-tool tag ls xaynetwork/xaynet | grep inactive | awk '{ print $1 }'
+
+
+      #- name: Notify on Slack
+      #  uses: 8398a7/action-slack@v3
+      #  if: always()
+      #  with:
+      #    status: custom
+      #    fields: workflow,job,repo,ref
+      #    custom_payload: |
+      #      {
+      #        username: 'GitHub Actions',
+      #        icon_emoji: ':octocat:',
+      #        attachments: [{
+      #          color: '${{ steps.docker.outcome }}' === 'success' ? 'good' : '${{ steps.docker.outcome }}' === 'failure' ? 'danger' : 'warning',
+      #          text: `${process.env.AS_WORKFLOW}\nRepository: :xaynet: ${process.env.AS_REPO}\nRef: ${process.env.AS_REF}\nTags: development`,
+      #        }]
+      #      }
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
