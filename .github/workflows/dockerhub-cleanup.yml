@@ -38,5 +38,5 @@ jobs:
           echo -e "\n\n"
           for tag in $(/tmp/hub-tool tag ls xaynetwork/xaynet | grep inactive | awk '{ print $1 }')
             do
-              echo /tmp/hub-tool tag rm -f ${tag}
+              /tmp/hub-tool tag rm -f ${tag}
           done
