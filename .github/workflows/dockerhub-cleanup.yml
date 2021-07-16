@@ -1,0 +1,42 @@
+name: DockerHub Scheduled Cleanup
+
+on:
+  schedule:
+    - cron: '00 00 * * sun'
+  workflow_dispatch:
+
+jobs:
+  dockerhub-cleanup-inactive:
+    name: Cleanup inactive xaynet tags on Dockerhub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup hub-tool
+        env:
+          DHUSER: ${{ secrets.DOCKER_USERNAME }}
+          DHTOKEN: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          export DEBIAN_FRONTEND="noninteractive"
+          sudo apt update
+          sudo apt install -y jq
+          LATEST=$(curl -s "https://api.github.com/repos/docker/hub-tool/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          wget https://github.com/docker/hub-tool/releases/download/${LATEST}/hub-tool-linux-amd64.tar.gz -O /tmp/hub-tool-linux-amd64.tar.gz
+          tar xzvf /tmp/hub-tool-linux-amd64.tar.gz --strip-components 1 -C /tmp hub-tool/hub-tool
+          mkdir -pv -m 700 ~/.docker
+          chmod -v 600 ~/.docker/config.json
+          echo -ne "ewogICJ1c2VybmFtZSI6ICJESFVTRVIiLAogICJwYXNzd29yZCI6ICJESFRPS0VOIgp9Cg==" | base64 -d > /tmp/auth.json
+          echo -ne "ewogICJhdXRocyI6IHsKICAgICJodWItdG9vbCI6IHsKICAgICAgImF1dGgiOiAiREhVU0VSVE9LRU4iCiAgICB9LAogICAgImh1Yi10b29sLXJlZnJlc2gtdG9rZW4iOiB7CiAgICAgICJhdXRoIjogIkRIVVNFUiIKICAgIH0sCiAgICAiaHViLXRvb2wtdG9rZW4iOiB7CiAgICAgICJhdXRoIjogIkRIVVNFUiIsCiAgICAgICJpZGVudGl0eXRva2VuIjogIkpXVFRPS0VOIgogICAgfQogIH0KfQoK" | base64 -d > ~/.docker/config.json
+          RUSERTOKEN=$(echo -ne "${DHUSER}:${DHTOKEN}" | base64 -w0)
+          RUSER=$(echo -ne "${DHUSER}:" | base64 -w0)
+          RTOKEN=$(echo -ne "${DHTOKEN}" | base64 -w0)
+          sed -i -e "s,DHUSERTOKEN,${RUSERTOKEN},g" -e "s,DHUSER,${RUSER},g" -e "s,DHTOKEN,${RTOKEN},g" /tmp/auth.json ~/.docker/config.json
+          JWT=$(curl -s -XPOST "https://hub.docker.com/v2/users/login" -H "Content-Type:application/json" -d "@/tmp/auth.json" | jq -r .token)
+          sed -i -e "s,JWTTOKEN,${JWT},g" ~/.docker/config.json
+      - name: Delete target tags
+        run: |
+          echo -e "Inactive tags:"
+          /tmp/hub-tool tag ls xaynetwork/xaynet | grep -e STATUS -e inactive
+          echo -e "\n\n"
+          for tag in $(/tmp/hub-tool tag ls xaynetwork/xaynet | grep inactive | grep -v -e "v[0-9]\+\.[0-9]\+\.[0-9]\+" | awk '{ print $1 }')
+            do
+              /tmp/hub-tool tag rm -f ${tag}
+          done
