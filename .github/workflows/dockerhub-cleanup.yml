@@ -36,7 +36,7 @@ jobs:
           echo -e "Inactive tags:"
           /tmp/hub-tool tag ls xaynetwork/xaynet | grep -e STATUS -e inactive
           echo -e "\n\n"
-          for tag in $(/tmp/hub-tool tag ls xaynetwork/xaynet | grep inactive | grep -v -e "v[0-9]\.[0-9]\+\.[0-9]\+" | awk '{ print $1 }')
+          for tag in $(/tmp/hub-tool tag ls xaynetwork/xaynet | grep inactive | grep -v -e "v[0-9]\+\.[0-9]\+\.[0-9]\+" | awk '{ print $1 }')
             do
               /tmp/hub-tool tag rm -f ${tag}
           done
