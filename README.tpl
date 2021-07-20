@@ -1,4 +1,4 @@
-[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.48+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) {{badges}} [![roadmap badge](https://img.shields.io/badge/Roadmap-2021-blue)](./ROADMAP.md)
+[![crates.io badge](https://img.shields.io/crates/v/xaynet.svg)](https://crates.io/crates/xaynet) [![docs.rs badge](https://docs.rs/xaynet/badge.svg)](https://docs.rs/xaynet) [![rustc badge](https://img.shields.io/badge/rustc-1.51.0+-lightgray.svg)](https://www.rust-lang.org/learn/get-started) {{badges}} [![roadmap badge](https://img.shields.io/badge/Roadmap-2021-blue)](./ROADMAP.md)
 
 ![Xaynet banner](./assets/xaynet_banner.png)
 
@@ -12,7 +12,7 @@
 
 ## Minimum supported rust version
 
-rustc 1.48.0
+rustc 1.51.0
 
 ## Running the platform
 
