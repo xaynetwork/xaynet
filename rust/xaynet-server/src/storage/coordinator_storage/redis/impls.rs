@@ -91,15 +91,6 @@ macro_rules! impl_byte_object_redis_traits {
                 }
             }
 
-            impl<'a> ToRedisArgs for &'a [<$ty Read>] {
-                fn write_redis_args<W>(&self, out: &mut W)
-                where
-                    W: ?Sized + RedisWrite,
-                {
-                    self.0.as_slice().write_redis_args(out)
-                }
-            }
-
             #[derive(From)]
             pub(crate) struct [<$ty Write>]<'a>(&'a $ty);
 
@@ -149,15 +140,6 @@ macro_rules! impl_bincode_redis_traits {
             {
                 let data = bincode::serialize(self).unwrap();
                 data.write_redis_args(out)
-            }
-        }
-
-        impl<'a> ToRedisArgs for &'a $ty {
-            fn write_redis_args<W>(&self, out: &mut W)
-            where
-                W: ?Sized + RedisWrite,
-            {
-                (*self).write_redis_args(out)
             }
         }
     };
