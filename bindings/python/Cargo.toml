@@ -39,7 +39,7 @@ requires-dist = [
 
 [package.metadata]
 # minimum supported rust version
-msrv = "1.48.0"
+msrv = "1.51.0"
 
 [dependencies]
 sodiumoxide = "0.2.7"
