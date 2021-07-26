@@ -20,7 +20,7 @@ jobs:
           allow-edits: "false"
           permission-level: write
 
-      - uses: jungwinter/split@v1
+      - uses: jungwinter/split@v2
         id: split
         with:
           msg: '${{ steps.command.outputs.command-arguments }}'
