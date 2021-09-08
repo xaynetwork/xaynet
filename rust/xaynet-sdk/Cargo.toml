@@ -23,7 +23,7 @@ derive_more = { version = "0.99.16", default-features = false, features = ["from
 # TODO: remove once concurrent_futures.rs was moved to the e2e package
 futures = "0.3.16"
 paste = "1.0.5"
-serde = { version = "1.0.127", features = ["derive"] }
+serde = { version = "1.0.130", features = ["derive"] }
 sodiumoxide = "0.2.7"
 thiserror = "1.0.26"
 # TODO: move to dev-dependencies once concurrent_futures.rs was moved to the e2e package
@@ -42,7 +42,7 @@ rand = "0.8.4"
 [dev-dependencies]
 mockall = "0.10.2"
 num = { version = "0.4.0", features = ["serde"] }
-serde_json = "1.0.66"
+serde_json = "1.0.67"
 tokio-test = "0.4.1"
 xaynet-core = { path = "../xaynet-core", features = ["testutils"] }
 
