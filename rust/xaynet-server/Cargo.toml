@@ -71,7 +71,7 @@ tower = { version = "0.4.6", default-features = false, features = [
 ] }
 tracing = "0.1.26"
 tracing-futures = "0.2.5"
-tracing-subscriber = "0.2.19"
+tracing-subscriber = "0.2.20"
 validator = { version = "0.14.0", features = ["derive"] }
 warp = "0.3.1"
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
