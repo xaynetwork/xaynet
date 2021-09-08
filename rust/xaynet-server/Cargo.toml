@@ -54,7 +54,7 @@ redis = { version = "0.21.0", default-features = false, features = [
     "tokio-comp",
 ] }
 sodiumoxide = "0.2.7"
-structopt = "0.3.22"
+structopt = "0.3.23"
 thiserror = "1.0.26"
 tokio = { version = "1.10.0", features = [
     "macros",
