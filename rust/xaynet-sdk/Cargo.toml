@@ -28,7 +28,7 @@ sodiumoxide = "0.2.7"
 thiserror = "1.0.29"
 # TODO: move to dev-dependencies once concurrent_futures.rs was moved to the e2e package
 tokio = { version = "1.11.0", features = ["rt", "macros"] }
-tracing = "0.1.26"
+tracing = "0.1.27"
 url = "2.2.2"
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
 
