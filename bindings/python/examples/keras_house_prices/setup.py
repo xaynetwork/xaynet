@@ -11,7 +11,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "pandas==1.3.3",
-        "scikit-learn==0.24.2",
+        "scikit-learn==1.0",
         "tensorflow==2.6.0",
         "numpy>=1.19.2,<1.22.0",
         "tabulate~=0.8.7",
