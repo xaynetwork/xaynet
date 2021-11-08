@@ -1464,12 +1464,13 @@ checksum = "64e9829a50b42bb782c1df523f78d332fe371b10c661e78b7a3c34b0198e9fac"
 
 [[package]]
 name = "influxdb"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fe060720fd73a206738b3f0beab024eef0db40f49a38f10a5a5e7e82dbf9e0d"
+checksum = "c9b636c4ed3877969b1117f55aa0beabec312b9f6d1221ba09095f26df624f42"
 dependencies = [
  "chrono",
- "futures",
+ "futures-util",
+ "http",
  "lazy_static",
  "regex",
  "surf",
