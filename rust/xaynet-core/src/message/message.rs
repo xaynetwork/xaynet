@@ -639,7 +639,7 @@ impl Message {
         // it. Otherwise compute it.
         let signature = match self.signature {
             Some(signature) => signature,
-            None => sk.sign_detached(&writer.signed_data_mut()),
+            None => sk.sign_detached(writer.signed_data_mut()),
         };
         signature.to_bytes(&mut writer.signature_mut());
     }

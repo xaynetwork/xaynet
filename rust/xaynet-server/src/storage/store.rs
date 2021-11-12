@@ -165,7 +165,7 @@ where
         global_model: &Model,
     ) -> StorageResult<String> {
         self.model
-            .set_global_model(round_id, &round_seed, &global_model)
+            .set_global_model(round_id, round_seed, global_model)
             .await
     }
 

@@ -261,7 +261,7 @@ async fn integration_state_machine_initializer_failed_to_find_global_model() {
     // set a model id but don't store a model
     let global_model_id = "1_412957050209fcfa733b1fb4ad51f321";
     store
-        .set_latest_global_model_id(&global_model_id)
+        .set_latest_global_model_id(global_model_id)
         .await
         .unwrap();
 

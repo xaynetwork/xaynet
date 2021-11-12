@@ -10,8 +10,8 @@ on:
       - 'README.tpl'
 
 env:
-  RUST_STABLE: 1.52.1
-  RUST_NIGHTLY: nightly-2021-05-10
+  RUST_STABLE: 1.55.0
+  RUST_NIGHTLY: nightly-2021-09-09
 
 jobs:
   registry-cache:
@@ -344,7 +344,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --ignored'
+          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --ignored --workspace --exclude xaynet-analytics'
 
       - name: Stop docker-compose
         working-directory: ./docker

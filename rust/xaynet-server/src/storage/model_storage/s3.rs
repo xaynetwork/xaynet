@@ -185,7 +185,7 @@ impl ModelStorage for Client {
         round_seed: &RoundSeed,
         global_model: &Model,
     ) -> StorageResult<String> {
-        let id = Self::create_global_model_id(round_id, &round_seed);
+        let id = Self::create_global_model_id(round_id, round_seed);
 
         debug!("upload global model: {}", id);
         let output = self
