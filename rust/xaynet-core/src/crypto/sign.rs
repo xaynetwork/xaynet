@@ -129,7 +129,7 @@ pub struct Signature(sign::Signature);
 mod manually_derive_serde_for_signature {
     //! TODO:
     //! remove this if sodiumoxide decides to reintroduce serialization of signatures
-    //! https://github.com/sodiumoxide/sodiumoxide/pull/434
+    //! <https://github.com/sodiumoxide/sodiumoxide/pull/434>
 
     use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 
