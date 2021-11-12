@@ -8,7 +8,11 @@
 //! a framework that allows mobile applications to collect and aggregate
 //! analytics data via the _Privacy-Enhancing Technology_ (PET) protocol.
 
+#[cfg(not(tarpaulin))]
 pub mod controller;
+#[cfg(not(tarpaulin))]
 pub mod data_combination;
+#[cfg(not(tarpaulin))]
 pub mod database;
+#[cfg(not(tarpaulin))]
 pub mod sender;
