@@ -240,7 +240,7 @@ where
     ) -> StateMachineInitializationResult<Model> {
         match self
             .store
-            .global_model(&global_model_id)
+            .global_model(global_model_id)
             .await
             .map_err(StateMachineInitializationError::FetchGlobalModel)?
         {

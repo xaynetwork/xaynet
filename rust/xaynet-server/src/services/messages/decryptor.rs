@@ -55,7 +55,7 @@ where
             info!("decrypting message");
             let res = keys
                 .secret
-                .decrypt(&data.as_ref(), &keys.public)
+                .decrypt(data.as_ref(), &keys.public)
                 .map_err(|_| ServiceError::Decrypt);
             let _ = tx.send(res);
         });

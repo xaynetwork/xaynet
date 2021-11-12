@@ -756,7 +756,7 @@ pub(in crate) mod tests {
         let sum_pks = create_and_add_sum_participant_entries(&mut client, 4).await;
         for (number, sum_pk) in sum_pks.iter().enumerate() {
             let mask_1 = create_mask(10, number as u32);
-            let res = client.incr_mask_score(&sum_pk, &mask_1).await;
+            let res = client.incr_mask_score(sum_pk, &mask_1).await;
             assert!(res.is_ok())
         }
 

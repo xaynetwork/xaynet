@@ -103,9 +103,7 @@ pub async fn add_local_seed_entries(
     let mut update_result = Vec::new();
 
     for (update_pk, local_seed_dict) in local_seed_entries {
-        let res = client
-            .add_local_seed_dict(&update_pk, &local_seed_dict)
-            .await;
+        let res = client.add_local_seed_dict(update_pk, local_seed_dict).await;
         assert!(res.is_ok());
         update_result.push(res.unwrap())
     }
