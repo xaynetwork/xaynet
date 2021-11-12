@@ -344,7 +344,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --ignored'
+          args: '--manifest-path rust/Cargo.toml --all-features --force-clean --lib --ignore-tests --ignored --workspace --exclude xaynet-analytics'
 
       - name: Stop docker-compose
         working-directory: ./docker
