@@ -30,7 +30,7 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 num = { version = "0.4.0", features = ["serde"] }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.131", features = ["derive"] }
+serde = { version = "1.0.132", features = ["derive"] }
 sodiumoxide = "0.2.7"
 thiserror = "1.0.30"
 
