@@ -23,7 +23,7 @@ structopt = "0.3.25"
 tokio = { version = "1.15.0", features = ["sync", "time", "macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.29"
 tracing-futures = "0.2.5"
-tracing-subscriber = { version = "0.3.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.4", features = ["env-filter"] }
 xaynet-core = { path = "../xaynet-core" }
 xaynet-sdk = { path = "../xaynet-sdk", features = ["reqwest-client"] }
 
