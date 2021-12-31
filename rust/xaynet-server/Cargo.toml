@@ -37,7 +37,7 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 displaydoc = "0.2.3"
 futures = "0.3.19"
 hex = "0.4.3"
-http = "0.2.5"
+http = "0.2.6"
 influxdb = { version = "0.5.1", default-features = false, features = ["h1-client"] }
 num = { version = "0.4.0", features = ["serde"] }
 num_enum = "0.5.5"
