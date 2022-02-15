@@ -583,7 +583,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "percent-encoding",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2",
  "time 0.2.26",
  "version_check",
@@ -2138,19 +2138,18 @@ dependencies = [
  "libc",
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
- "rand_hc 0.2.0",
+ "rand_hc",
 ]
 
 [[package]]
 name = "rand"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7573632e6454cf6b99d7aac4ccca54be06da05aca2ef7423d22d27d4d4bcd8"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.2",
- "rand_hc 0.3.0",
 ]
 
 [[package]]
@@ -2198,15 +2197,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3190ef7066a446f2e7f42e239d161e905420ccab01eb967c9eb27d21b2322a73"
-dependencies = [
- "rand_core 0.6.2",
 ]
 
 [[package]]
@@ -2921,7 +2911,7 @@ checksum = "dac1c663cfc93810f88aed9b8941d48cabf856a1b111c29a40439018d870eb22"
 dependencies = [
  "cfg-if",
  "libc",
- "rand 0.8.4",
+ "rand 0.8.5",
  "redox_syscall",
  "remove_dir_all",
  "winapi",
@@ -3288,7 +3278,7 @@ dependencies = [
  "httparse",
  "input_buffer",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha-1",
  "url",
  "utf-8",
@@ -3705,7 +3695,7 @@ dependencies = [
  "derive_more",
  "num",
  "paste",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde 1.0.136",
  "sodiumoxide",
@@ -3744,7 +3734,7 @@ dependencies = [
  "mockall",
  "num",
  "paste",
- "rand 0.8.4",
+ "rand 0.8.5",
  "reqwest",
  "serde 1.0.136",
  "serde_json",
@@ -3781,7 +3771,7 @@ dependencies = [
  "num_enum",
  "once_cell",
  "paste",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rayon",
  "redis",
