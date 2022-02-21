@@ -212,15 +212,16 @@ pub struct RestoreSettings {
 mod tests {
     use super::*;
     use crate::settings::Settings;
-    use config::{Config, ConfigError, Environment};
+    use config::{Config, ConfigError, Environment, File, FileFormat};
     use serial_test::serial;
 
     impl Settings {
         fn load_from_str(string: &str) -> Result<Self, ConfigError> {
-            let mut config = Config::new();
-            config.merge(config::File::from_str(string, config::FileFormat::Toml))?;
-            config.merge(Environment::with_prefix("xaynet").separator("__"))?;
-            config.try_into()
+            Config::builder()
+                .add_source(File::from_str(string, FileFormat::Toml))
+                .add_source(Environment::with_prefix("xaynet").separator("__"))
+                .build()?
+                .try_deserialize()
         }
     }
 

@@ -7,7 +7,7 @@
 use std::path::PathBuf;
 use std::{fmt, path::Path};
 
-use config::{Config, ConfigError, Environment};
+use config::{Config, ConfigError, Environment, File};
 use displaydoc::Display;
 use redis::{ConnectionInfo, IntoConnectionInfo};
 use serde::{
@@ -74,10 +74,11 @@ impl Settings {
     }
 
     fn load(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
-        let mut config = Config::new();
-        config.merge(config::File::from(path.as_ref()))?;
-        config.merge(Environment::with_prefix("xaynet").separator("__"))?;
-        config.try_into()
+        Config::builder()
+            .add_source(File::from(path.as_ref()))
+            .add_source(Environment::with_prefix("xaynet").separator("__"))
+            .build()?
+            .try_deserialize()
     }
 }
 
