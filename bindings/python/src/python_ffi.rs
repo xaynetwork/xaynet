@@ -284,7 +284,7 @@ macro_rules! from_primitives {
 
 #[pyfunction]
 fn init_logging() {
-    let env_filter = EnvFilter::try_from_env("XAYNET_CLIENT");
+    let env_filter = EnvFilter::try_from_env("XAYNET__CLIENT");
     if let Ok(filter) = env_filter {
         let _fmt_subscriber = FmtSubscriber::builder()
             .with_env_filter(filter)

@@ -59,7 +59,7 @@ split-data --data-directory data --number-of-participants 10
 8.  Run one participant:
 
 ```shell
-XAYNET_CLIENT=info run-participant --data-directory data --coordinator-url http://127.0.0.1:8081
+XAYNET__CLIENT=info run-participant --data-directory data --coordinator-url http://127.0.0.1:8081
 ```
 
 9. Repeat the previous step to run more participants

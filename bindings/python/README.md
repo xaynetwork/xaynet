@@ -348,11 +348,11 @@ class AsyncParticipant:
 ## Enable logging of `xaynet-mobile`
 
 If you are interested in what `xaynet-mobile` is doing under the hood,
-you can turn on the logging via the environment variable `XAYNET_CLIENT`.
+you can turn on the logging via the environment variable `XAYNET__CLIENT`.
 
 For example:
 
-`XAYNET_CLIENT=info python examples/participate_in_update.py`
+`XAYNET__CLIENT=info python examples/participate_in_update.py`
 
 ## How can I ... ?
 
