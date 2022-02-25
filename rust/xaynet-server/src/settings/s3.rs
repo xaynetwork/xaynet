@@ -25,7 +25,7 @@ pub struct S3Settings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_S3__ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+    /// XAYNET__S3__ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
     /// ```
     pub access_key: String,
 
@@ -41,7 +41,7 @@ pub struct S3Settings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_S3__SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    /// XAYNET__S3__SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
     /// ```
     pub secret_access_key: String,
 
@@ -59,7 +59,7 @@ pub struct S3Settings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_S3__REGION="eu-west-1"
+    /// XAYNET__S3__REGION="eu-west-1"
     /// ```
     ///
     /// To connect to AWS-compatible services such as Minio, you need to specify a custom region.
@@ -74,7 +74,7 @@ pub struct S3Settings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_S3__REGION="minio http://localhost:8000"
+    /// XAYNET__S3__REGION="minio http://localhost:8000"
     /// ```
     #[serde(deserialize_with = "deserialize_s3_region")]
     pub region: Region,
@@ -102,7 +102,7 @@ pub struct S3BucketsSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_S3__BUCKETS__GLOBAL_MODELS="global-models"
+    /// XAYNET__S3__BUCKETS__GLOBAL_MODELS="global-models"
     /// ```
     #[validate(custom = "validate_s3_bucket_name")]
     pub global_models: String,
@@ -203,7 +203,7 @@ pub struct RestoreSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_RESTORE__ENABLE=false
+    /// XAYNET__RESTORE__ENABLE=false
     /// ```
     pub enable: bool,
 }
@@ -443,10 +443,10 @@ mod tests {
             .with_s3_buckets()
             .build();
 
-        std::env::set_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
+        std::env::set_var("XAYNET__S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
         let settings = Settings::load_from_str(&config).unwrap();
         assert_eq!(settings.s3.buckets.global_models, "global-models-env");
-        std::env::remove_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS");
+        std::env::remove_var("XAYNET__S3__BUCKETS__GLOBAL_MODELS");
     }
 
     #[test]
@@ -464,10 +464,10 @@ mod tests {
             .with_s3()
             .build();
 
-        std::env::set_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
+        std::env::set_var("XAYNET__S3__BUCKETS__GLOBAL_MODELS", "global-models-env");
         let settings = Settings::load_from_str(&config).unwrap();
         assert_eq!(settings.s3.buckets.global_models, "global-models-env");
-        std::env::remove_var("XAYNET_S3__BUCKETS__GLOBAL_MODELS");
+        std::env::remove_var("XAYNET__S3__BUCKETS__GLOBAL_MODELS");
     }
 
     #[test]
@@ -536,10 +536,10 @@ mod tests {
             .with_s3()
             .build();
 
-        std::env::set_var("XAYNET_S3__REGION", "eu-west-1");
+        std::env::set_var("XAYNET__S3__REGION", "eu-west-1");
         let settings = Settings::load_from_str(&config).unwrap();
         assert!(matches!(settings.s3.region, Region::EuWest1));
-        std::env::remove_var("XAYNET_S3__REGION");
+        std::env::remove_var("XAYNET__S3__REGION");
     }
 
     #[test]
@@ -581,7 +581,7 @@ mod tests {
             .with_s3()
             .build();
 
-        std::env::set_var("XAYNET_S3__REGION", "minio-env http://localhost:8000");
+        std::env::set_var("XAYNET__S3__REGION", "minio-env http://localhost:8000");
         let settings = Settings::load_from_str(&config).unwrap();
         assert!(matches!(
             settings.s3.region,
@@ -590,6 +590,6 @@ mod tests {
                 endpoint
             } if name == "minio-env" && endpoint == "http://localhost:8000"
         ));
-        std::env::remove_var("XAYNET_S3__REGION");
+        std::env::remove_var("XAYNET__S3__REGION");
     }
 }

@@ -119,7 +119,7 @@ pub struct PetSettingsSum {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__SUM__PROB=0.01
+    /// XAYNET__PET__SUM__PROB=0.01
     /// ```
     pub prob: f64,
 
@@ -141,8 +141,8 @@ pub struct PetSettingsSum {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__SUM__COUNT__MIN=10
-    /// XAYNET_PET__SUM__COUNT__MAX=100
+    /// XAYNET__PET__SUM__COUNT__MIN=10
+    /// XAYNET__PET__SUM__COUNT__MAX=100
     /// ```
     pub count: PetSettingsCount,
 
@@ -165,8 +165,8 @@ pub struct PetSettingsSum {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__SUM__TIME__MIN=5
-    /// XAYNET_PET__SUM__TIME__MAX=3600
+    /// XAYNET__PET__SUM__TIME__MIN=5
+    /// XAYNET__PET__SUM__TIME__MAX=3600
     /// ```
     pub time: PetSettingsTime,
 }
@@ -190,7 +190,7 @@ pub struct PetSettingsUpdate {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__UPDATE__PROB=0.1
+    /// XAYNET__PET__UPDATE__PROB=0.1
     /// ```
     pub prob: f64,
 
@@ -214,8 +214,8 @@ pub struct PetSettingsUpdate {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__UPDATE__COUNT__MIN=100
-    /// XAYNET_PET__UPDATE__COUNT__MAX=10000
+    /// XAYNET__PET__UPDATE__COUNT__MIN=100
+    /// XAYNET__PET__UPDATE__COUNT__MAX=10000
     /// ```
     pub count: PetSettingsCount,
 
@@ -239,8 +239,8 @@ pub struct PetSettingsUpdate {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__UPDATE__TIME__MIN=10
-    /// XAYNET_PET__UPDATE__TIME__MAX=10
+    /// XAYNET__PET__UPDATE__TIME__MIN=10
+    /// XAYNET__PET__UPDATE__TIME__MAX=10
     /// ```
     pub time: PetSettingsTime,
 }
@@ -270,8 +270,8 @@ pub struct PetSettingsSum2 {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__SUM2__COUNT__MIN=10
-    /// XAYNET_PET__SUM2__COUNT__MAX=100
+    /// XAYNET__PET__SUM2__COUNT__MIN=10
+    /// XAYNET__PET__SUM2__COUNT__MAX=100
     /// ```
     pub count: PetSettingsCount,
 
@@ -295,8 +295,8 @@ pub struct PetSettingsSum2 {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_PET__SUM2__TIME__MIN=5
-    /// XAYNET_PET__SUM2__TIME__MAX=3600
+    /// XAYNET__PET__SUM2__TIME__MIN=5
+    /// XAYNET__PET__SUM2__TIME__MAX=3600
     /// ```
     pub time: PetSettingsTime,
 }
@@ -399,7 +399,7 @@ pub struct ApiSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__BIND_ADDRESS=127.0.0.1:8081
+    /// XAYNET__API__BIND_ADDRESS=127.0.0.1:8081
     /// ```
     pub bind_address: std::net::SocketAddr,
 
@@ -420,7 +420,7 @@ pub struct ApiSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
+    /// XAYNET__API__TLS_CERTIFICATE=path/to/tls/files/certificate.pem
     /// ```
     pub tls_certificate: Option<PathBuf>,
 
@@ -442,7 +442,7 @@ pub struct ApiSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__TLS_KEY=path/to/tls/files/key.rsa
+    /// XAYNET__API__TLS_KEY=path/to/tls/files/key.rsa
     /// ```
     pub tls_key: Option<PathBuf>,
 
@@ -463,7 +463,7 @@ pub struct ApiSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_API__TLS_CLIENT_AUTH=path/to/tls/files/trust_anchor.pem
+    /// XAYNET__API__TLS_CLIENT_AUTH=path/to/tls/files/trust_anchor.pem
     /// ```
     pub tls_client_auth: Option<PathBuf>,
 }
@@ -501,7 +501,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MASK__GROUP_TYPE=Integer
+    /// XAYNET__MASK__GROUP_TYPE=Integer
     /// ```
     pub group_type: GroupType,
 
@@ -517,7 +517,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MASK__DATA_TYPE=F32
+    /// XAYNET__MASK__DATA_TYPE=F32
     /// ```
     pub data_type: DataType,
 
@@ -533,7 +533,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MASK__BOUND_TYPE=B0
+    /// XAYNET__MASK__BOUND_TYPE=B0
     /// ```
     pub bound_type: BoundType,
 
@@ -549,7 +549,7 @@ pub struct MaskSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MASK__MODEL_TYPE=M3
+    /// XAYNET__MASK__MODEL_TYPE=M3
     /// ```
     pub model_type: ModelType,
 }
@@ -589,7 +589,7 @@ pub struct ModelSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_MODEL__LENGTH=100
+    /// XAYNET__MODEL__LENGTH=100
     /// ```
     pub length: usize,
 }
@@ -618,7 +618,7 @@ pub struct InfluxSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_METRICS__INFLUXDB__URL=http://localhost:8086
+    /// XAYNET__METRICS__INFLUXDB__URL=http://localhost:8086
     /// ```
     pub url: String,
 
@@ -634,7 +634,7 @@ pub struct InfluxSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_METRICS__INFLUXDB__DB=test
+    /// XAYNET__METRICS__INFLUXDB__DB=test
     /// ```
     pub db: String,
 }
@@ -656,7 +656,7 @@ pub struct RedisSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_REDIS__URL=redis://127.0.0.1/
+    /// XAYNET__REDIS__URL=redis://127.0.0.1/
     /// ```
     #[serde(deserialize_with = "deserialize_redis_url")]
     pub url: ConnectionInfo,
@@ -718,7 +718,7 @@ pub struct LoggingSettings {
     ///
     /// **Environment variable**
     /// ```text
-    /// XAYNET_LOG__FILTER=info
+    /// XAYNET__LOG__FILTER=info
     /// ```
     ///
     /// [here]: https://docs.rs/tracing-subscriber/0.2.15/tracing_subscriber/filter/struct.EnvFilter.html#directives
