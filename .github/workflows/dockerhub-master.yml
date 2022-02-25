@@ -1,4 +1,4 @@
-name: DockerHub + Kubernetes (master)
+name: DockerHub (master)
 
 on:
   push:
@@ -30,23 +30,6 @@ jobs:
           tags: xaynetwork/xaynet:development
           push: true
           build-args: COORDINATOR_FEATURES=metrics
-
-      - name: Apply kubeconfig
-        shell: bash
-        env:
-          KUBECFG: ${{ secrets.KUBECFG_DEV_XAYNET }}
-        run: |
-          mkdir -pv ~/.kube
-          echo -e "${KUBECFG}" | base64 -d > ~/.kube/config
-
-      - name: Re-apply manifests
-        run: kubectl apply -n xaynet -k $GITHUB_WORKSPACE/k8s/coordinator/development
-
-      - name: Force deployment rollout
-        run: kubectl rollout -n xaynet restart deployment/coordinator-deployment
-
-      - name: Check deployment status
-        run: kubectl rollout -n xaynet status deployment/coordinator-deployment
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
