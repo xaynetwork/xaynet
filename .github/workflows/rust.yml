@@ -390,7 +390,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-python-bindings-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Setup Python 3.6
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: 3.6
           architecture: "x64"
