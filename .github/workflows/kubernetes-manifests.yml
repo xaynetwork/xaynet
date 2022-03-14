@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Verify Kubernetes manifests
         run: kubectl kustomize $GITHUB_WORKSPACE/k8s/coordinator/development > /dev/null # Print only errors, if any
