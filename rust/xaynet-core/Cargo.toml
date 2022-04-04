@@ -38,4 +38,4 @@ thiserror = "1.0.30"
 testutils = []
 
 [dev-dependencies]
-paste = "1.0.6"
+paste = "1.0.7"
