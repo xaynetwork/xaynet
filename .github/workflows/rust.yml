@@ -263,7 +263,7 @@ jobs:
         run: cargo bench
 
       - name: Upload bench artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: bench_${{ github.sha }}
           path: ${{ github.workspace }}/rust/benches/target/criterion
