@@ -43,7 +43,7 @@ msrv = "1.51.0"
 
 [dependencies]
 sodiumoxide = "0.2.7"
-tracing = "0.1.34"
+tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 pyo3 = {version = "=0.13.2", features = ["abi3-py36", "extension-module"]}
 xaynet-core = { path = "../../rust/xaynet-core", version = "0.2.0"}
