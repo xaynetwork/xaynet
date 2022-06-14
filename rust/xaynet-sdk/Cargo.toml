@@ -27,7 +27,7 @@ serde = { version = "1.0.137", features = ["derive"] }
 sodiumoxide = "0.2.7"
 thiserror = "1.0.31"
 # TODO: move to dev-dependencies once concurrent_futures.rs was moved to the e2e package
-tokio = { version = "1.18.2", features = ["rt", "macros"] }
+tokio = { version = "1.19.2", features = ["rt", "macros"] }
 tracing = "0.1.35"
 url = "2.2.2"
 xaynet-core = { path = "../xaynet-core", version = "0.2.0" }
