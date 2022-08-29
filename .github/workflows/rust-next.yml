@@ -38,7 +38,7 @@ jobs:
         shell: bash
 
       - name: Cache cargo registry
-        uses: actions/cache@v3.0.7
+        uses: actions/cache@v3.0.8
         with:
           path: |
             ~/.cargo/registry
@@ -73,7 +73,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@v3.0.7
+        uses: actions/cache@v3.0.8
         with:
           path: |
             ~/.cargo/registry
@@ -109,7 +109,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@v3.0.7
+        uses: actions/cache@v3.0.8
         with:
           path: |
             ~/.cargo/registry
@@ -147,7 +147,7 @@ jobs:
           components: clippy
 
       - name: Use cached cargo registry
-        uses: actions/cache@v3.0.7
+        uses: actions/cache@v3.0.8
         with:
           path: |
             ~/.cargo/registry
@@ -182,7 +182,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@v3.0.7
+        uses: actions/cache@v3.0.8
         with:
           path: |
             ~/.cargo/registry
